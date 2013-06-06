@@ -65,7 +65,7 @@ int main()
 		for ( int x = 0; x < image.width(); x += g_N )
 		{
 			Patch pp(image, x, y);
-			pp.insertInto(imgOut, x, y);
+			pp.convertToGray().insertInto(imgOut, x, y);
 		}
 	}
 
