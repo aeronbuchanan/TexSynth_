@@ -37,11 +37,11 @@ typedef TexSynther<g_N>::Patch Patch;
 
 int main()
 {
-	std::string filestem = "mesh";
+	std::string filestem = "leaf_orig";
 	std::string inputFilename = filestem + ".png";
 	std::string outputFilename = filestem + "_out.png";
 
-	CImg<float> image(inputFilename.c_str());
+	CImg<uchar> image(inputFilename.c_str());
 
 	/*
 	Patch pp(image, 0, 0);
@@ -57,7 +57,7 @@ int main()
 	Patch tmp;
 	if ( tmp.test() ) printf("Patch: all good.\n");
 
-	CImg<float> imgOut(image);
+	CImg<uchar> imgOut(image);
 	imgOut.fill(0);
 
 	for ( int y = 0; y < image.height(); y += g_N )

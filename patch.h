@@ -140,7 +140,7 @@ public:
 					if ( i != ic || j != jc || c != cc )
 					{
 						good = false;
-						printf("ERROR: (%u,%u,%u) -> [%u] -> (%u,%u,%u)\n", x, y, c, k, iCoord(k), jCoord(k), cCoord(k));
+						printf("ERROR: (%u,%u,%u) -> [%u] -> (%u,%u,%u)\n", i, j, c, k, iCoord(k), jCoord(k), cCoord(k));
 					}
 				}
 		return good;
@@ -184,13 +184,14 @@ public:
 
 	ImagePatch<N, T> & convertToGray()
 	{
-		for ( uint j = 0; j < N; j += 3 )
+		// TODO: seems to be coming out too dark...
+		for ( uint j = 0; j < N; ++j )
 		{
-			for ( uint i = 0; i < N; i += 3 )
+			for ( uint i = 0; i < N; ++i )
 			{
 				T v = T();
 				for ( uint c = 0; c < 3; ++c )
-					v += m_v[kCoord(i,j,c)];
+					v += m_v[kCoord(i,j,c)] / 3;
 				for ( uint c = 0; c < 3; ++c )
 					m_v[kCoord(i,j,c)] = v;
 			}
