@@ -37,39 +37,21 @@ typedef TexSynther<g_N>::Patch Patch;
 
 int main()
 {
-	std::string filestem = "leaf_orig";
+	std::string filestem = "mesh";
 	std::string inputFilename = filestem + ".png";
 	std::string outputFilename = filestem + "_out.png";
 
 	CImg<uchar> image(inputFilename.c_str());
-
-	/*
-	Patch pp(image, 0, 0);
-	Patch qq(image, 100, 100);
-	Patch dd = abs(diff(pp,qq));
-	CImg<float> II(g_N, g_N, 1, 1);
-	dd.insertInto(II, 0, 0);
-	findMinVerticalSeam()
-	*/
+	CImg<float> imgOut(image.width(), image.height(), 1, 3, 0);
 
 #if 1
 
-	Patch tmp;
-	if ( tmp.test() ) printf("Patch: all good.\n");
-
-	CImg<uchar> imgOut(image);
-	imgOut.fill(0);
-
-	for ( int y = 0; y < image.height(); y += g_N )
-	{
-		for ( int x = 0; x < image.width(); x += g_N )
-		{
-			Patch pp(image, x, y);
-			pp.convertToGray().insertInto(imgOut, x, y);
-		}
-	}
-
-	imgOut.save("test.png");
+	Patch pp(image, 0, 0);
+	Patch qq(image, 100, 100);
+	Patch dd = Patch::diffSqrd(pp, qq);
+	CImg<float> d(g_N, g_N, 1, 3);
+	dd.insertInto(d, 0, 0);
+	findMinVerticalSeam(d);
 
 #else
 
@@ -84,7 +66,6 @@ int main()
 	}
 
 	imgInter = imagePyramid.back();
-	CImg<float> imgOut(imgInter.width(), imgInter.height(), 1, 3, 0);
 
 	int i = 0;
 	for ( auto imgIt = imagePyramid.rbegin(); imgIt != imagePyramid.rend(); ++imgIt, ++i )
@@ -123,7 +104,7 @@ int main()
 
 #endif
 
-	if ( 1 )
+	if ( 0 )
 	{
 		cimg_library::CImgDisplay display0(image, "Original");
 		cimg_library::CImgDisplay display1(imgOut, "Reconstructed");
