@@ -51,7 +51,14 @@ int main()
 	Patch dd = Patch::diffSqrd(pp, qq);
 	CImg<float> d(g_N, g_N, 1, 3);
 	dd.insertInto(d, 0, 0);
-	findMinVerticalSeam(d);
+	printf("#### DOWNWARDS ####\n");
+	findMinSeam<Seam::Downwards>(d);
+	printf("#### RIGHTWARDS ####\n");
+	findMinSeam<Seam::Rightwards>(d);
+	printf("#### UPWARDS ####\n");
+	findMinSeam<Seam::Upwards>(d);
+	printf("#### LEFTWARDS ####\n");
+	findMinSeam<Seam::Leftwards>(d);
 
 #else
 
