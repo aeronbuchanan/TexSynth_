@@ -20,6 +20,8 @@
 #pragma once
 
 #include <iostream>
+
+// TODO: make TexSynth image-library agnostic
 #include "CImg.h"
 using cimg_library::CImg;
 
@@ -37,8 +39,11 @@ class VecN
 
 public:
 	VecN() { setAll(T()); }
-	explicit VecN(T const _v) { setAll(_v); }
+	explicit VecN(T const & _v) { setAll(_v); }
 	explicit VecN(T const * _v) { FOREACH_(i,N) { m_v[i] = _v[i]; } }
+	VecN(T const & _v0, T const & _v1) { m_v[1] = _v1; m_v[0] = _v0; }
+	VecN(T const & _v0, T const & _v1, T const & _v2) { m_v[2] = _v2; m_v[1] = _v1; m_v[0] = _v0; }
+	VecN(T const & _v0, T const & _v1, T const & _v2, T const & _v3) { m_v[3] = _v3; m_v[2] = _v2; m_v[1] = _v1; m_v[0] = _v0; }
 	template<class Y, uint M>
 	VecN(VecN<Y, M> const & _v) { setAll(0); FOREACH_(i, std::min(N,M)) { m_v[i] = _v[i]; } }
 
@@ -50,6 +55,15 @@ public:
 	// TODO: WARNING: silently returns last element if index out-of-bounds
 	T & operator[](uint _i) { return m_v[std::min(_i, N - 1)]; }
 	T operator[](uint _i) const { return m_v[std::min(_i, N - 1)]; }
+
+	T & x() { return m_v[0]; }
+	T x() const { return m_v[0]; }
+	T & y() { return m_v[1]; }
+	T y() const { return m_v[1]; }
+	T & z() { return m_v[2]; }
+	T z() const { return m_v[2]; }
+	T & w() { return m_v[3]; }
+	T w() const { return m_v[3]; }
 
 	template<class Y>
 	VecN<T, N> & operator+=(VecN<Y, N> const & _v) { FOREACH_(i,N) { m_v[i] += _v[i]; } return *this; }
@@ -109,6 +123,8 @@ private:
 #undef FOREACH_
 };
 
+typedef VecN<uint, 2> Coord;
+
 template<uint N, uint M = 3, typename T = float>
 class ImagePatch
 {
@@ -131,6 +147,8 @@ public:
 	template<class U>
 	ImagePatch(CImg<U> const & _img, uint _x, uint _y) { this->extractFrom(_img, _x, _y); }
 
+	// TODO: use size_t everywhere else too
+	size_t size() { return m_v.size(); }
 	T & operator[](uint _k) { return m_v[_k]; }
 	T operator[](uint _k) const { return m_v[_k]; }
 
@@ -204,6 +222,8 @@ public:
 	}
 
 	ImagePatch<N, M, T> & grayVersion() { return ImagePatch<N, M, T>(*this).convertToGray(); }
+
+	//ImagePAtch<N, M, T> & minWithSeam(Seam )
 
 	// TODO: refactor following for inter-type compatibility
 

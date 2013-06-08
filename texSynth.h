@@ -26,24 +26,25 @@
 #include "CImg.h"
 
 #include "patch.h"
+#include "seam.h"
 
 namespace TexSynth
 {
 
-template<uint N>
+template<uint N, typename T = float>
 class TexSynther
 {
 public:
-	typedef ImagePatch<N> Patch;
+	typedef ImagePatch<N, 3, T> Patch;
 	typedef std::vector<Patch> PatchLibrary;
 
 	TexSynther() : m_patchWidth(N) { }
 
-	template<class T>
-	void extendTextureIn(cimg_library::CImg<T> & _image, cimg_library::CImg<T> & _mask) const;
+	template<class U>
+	void extendTextureIn(cimg_library::CImg<U> & _image, cimg_library::CImg<U> & _mask) const;
 
-	template<class T>
-	uint selectPatchFor(cimg_library::CImg<T> & _image, cimg_library:: CImg<T> & _mask, uint _x, uint _y) const;
+	template<class U>
+	uint selectPatchFor(cimg_library::CImg<U> & _image, cimg_library:: CImg<U> & _mask, uint _x, uint _y) const;
 
 	void addPatches(PatchLibrary const & _pl) { m_patches.insert( m_patches.end(), _pl.begin(), _pl.end() ); }
 	void clearPatches() { m_patches.clear(); }
@@ -53,7 +54,6 @@ private:
 	PatchLibrary m_patches;
 	uint m_patchWidth;
 };
-
 
 
 } // end namespace TexSynth

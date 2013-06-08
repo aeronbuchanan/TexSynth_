@@ -28,7 +28,7 @@ using cimg_library::CImg;
 
 #include "patch.h"
 #include "texSynth.h"
-#include "minSeam.h"
+#include "seam.h"
 using namespace TexSynth;
 
 static uint const g_N = 22;
@@ -44,7 +44,7 @@ int main()
 	CImg<uchar> image(inputFilename.c_str());
 	CImg<float> imgOut(image.width(), image.height(), 1, 3, 0);
 
-#if 1
+#if 0
 
 	Patch pp(image, 0, 0);
 	Patch qq(image, 100, 100);
@@ -52,13 +52,31 @@ int main()
 	CImg<float> d(g_N, g_N, 1, 3);
 	dd.insertInto(d, 0, 0);
 	printf("#### DOWNWARDS ####\n");
-	findMinSeam<Seam::Downwards>(d);
-	printf("#### RIGHTWARDS ####\n");
-	findMinSeam<Seam::Rightwards>(d);
+	auto down = findMinSeam<Seams::Downwards>(d);
 	printf("#### UPWARDS ####\n");
-	findMinSeam<Seam::Upwards>(d);
+	auto up = findMinSeam<Seams::Upwards>(d);
+	printf("#### RIGHTWARDS ####\n");
+	auto right = findMinSeam<Seams::Rightwards>(d);
 	printf("#### LEFTWARDS ####\n");
-	findMinSeam<Seam::Leftwards>(d);
+	auto left = findMinSeam<Seams::Leftwards>(d);
+
+	CImg<uchar> mask(g_N, g_N, 1, 1);
+
+	mask.fill(255);
+	down.modifyPatch(mask);
+	mask.save("down.png");
+
+	mask.fill(255);
+	up.modifyPatch(mask);
+	mask.save("up.png");
+
+	mask.fill(255);
+	right.modifyPatch(mask);
+	mask.save("right.png");
+
+	mask.fill(255);
+	left.modifyPatch(mask);
+	mask.save("left.png");
 
 #else
 

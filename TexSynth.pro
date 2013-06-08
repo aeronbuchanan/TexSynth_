@@ -14,5 +14,5 @@ HEADERS += \
     texSynth.h \
 	texSynth.hpp \
     patch.h \
-    minSeam.h
+    seam.h
 

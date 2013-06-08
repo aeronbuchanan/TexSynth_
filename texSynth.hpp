@@ -22,9 +22,9 @@
 #include <limits>
 #include <algorithm>
 
-template<uint N>
-template<class T>
-uint TexSynth::TexSynther<N>::selectPatchFor(cimg_library::CImg<T> & _I,cimg_library:: CImg<T> & _M, uint _x, uint _y) const
+template<uint N, typename T>
+template<class U>
+uint TexSynth::TexSynther<N, T>::selectPatchFor(cimg_library::CImg<U> & _I,cimg_library:: CImg<U> & _M, uint _x, uint _y) const
 {
 	// printf("selectPatchFor\n");
 
@@ -67,9 +67,9 @@ uint TexSynth::TexSynther<N>::selectPatchFor(cimg_library::CImg<T> & _I,cimg_lib
 }
 
 
-template<uint N>
-template<class T>
-void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<T> & _I,cimg_library:: CImg<T> & _M) const
+template<uint N, typename T>
+template<class U>
+void TexSynth::TexSynther<N, T>::extendTextureIn(cimg_library::CImg<U> & _I, cimg_library:: CImg<U> & _M) const
 {
 	//printf("extendTextureIn\n");
 
@@ -82,8 +82,29 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<T> & _I,cimg_li
 	for ( uint y = 0; y < _I.height() - m_patchWidth; y += shift )
 		for ( uint x = 0; x < _I.width() - m_patchWidth; x += shift )
 		{
-			Patch p = 	m_patches[selectPatchFor(_I, _M, x, y)];
+			Patch p = m_patches[selectPatchFor(_I, _M, x, y)];
+
+			// TODO: put the following somewhere more general
+			Patch ii(_I, x, y);
+			Patch mm(_M, x, y);
+			Patch dd = Patch::diffSqrd(ii, p);
+			for ( uint i = 0; i < dd.size(); ++i ) dd[i] = mm[i] != 1.f ? std::numeric_limits<T>::max() : dd[i];
+			CImg<float> d(N, N, 1, 3);
+			dd.insertInto(d, 0, 0);
+			// TODO: do all four directions
+			auto vSeam = findMinSeam<Seams::Downwards>(d);
+			auto hSeam = findMinSeam<Seams::Leftwards>(d);
+			d.fill(1.f);
+			vSeam.modifyPatch(d);
+			hSeam.modifyPatch(d);
+			// Merge patches
+			for ( uint j = 0; j < N; ++j )
+				for ( uint i = 0; i < N; ++i )
+					for ( uint c = 0; c < 3; ++c )
+						p(i, j, c) = d(i, j) * p(i, j, c) + (1.f - d(i, j)) * ii(i, j, c);
+
 			p.insertInto(_I, x, y);
+
 			ones.insertInto(_M, x, y);
 		}
 }

@@ -20,27 +20,24 @@
 #pragma once
 
 #include <vector>
+#include "patch.h"
 
 #include "CImg.h"
-
 using cimg_library::CImg;
 
 namespace TexSynth
 {
 
-namespace Seam
+namespace Seams
 {
 
 enum Direction { Downwards = 1, Rightwards, Upwards, Leftwards };
 
 template<Direction D>
-struct Coord
+struct Coord : public TexSynth::Coord
 {
-	uint x;
-	uint y;
-
-	Coord() : x(0), y(0) {}
-	Coord(uint _x, uint _y) : x(_x), y(_y) {}
+	Coord() : TexSynth::Coord(0, 0) {}
+	Coord(uint _x, uint _y) : TexSynth::Coord(_x, _y) {}
 
 	Coord & advNeg() { --orthComp(); return *this; }
 	Coord & advPos() { ++orthComp(); return *this; }
@@ -57,20 +54,20 @@ struct Coord
 };
 
 // Specializations
-template<> uint & Coord<Downwards>::orthComp() { return x;  }
-template<> uint & Coord<Downwards>::dirComp() { return y; }
+template<> uint & Coord<Downwards>::orthComp() { return x();  }
+template<> uint & Coord<Downwards>::dirComp() { return y(); }
 template<> int Coord<Downwards>::dirStep() const { return +1; }
 
-template<> uint & Coord<Upwards>::orthComp() { return x;  }
-template<> uint & Coord<Upwards>::dirComp() { return y; }
+template<> uint & Coord<Upwards>::orthComp() { return x();  }
+template<> uint & Coord<Upwards>::dirComp() { return y(); }
 template<> int Coord<Upwards>::dirStep() const { return -1; }
 
-template<> uint & Coord<Rightwards>::orthComp() { return y; }
-template<> uint & Coord<Rightwards>::dirComp() { return x; }
+template<> uint & Coord<Rightwards>::orthComp() { return y(); }
+template<> uint & Coord<Rightwards>::dirComp() { return x(); }
 template<> int Coord<Rightwards>::dirStep() const { return +1; }
 
-template<> uint & Coord<Leftwards>::orthComp() { return y; }
-template<> uint & Coord<Leftwards>::dirComp() { return x; }
+template<> uint & Coord<Leftwards>::orthComp() { return y(); }
+template<> uint & Coord<Leftwards>::dirComp() { return x(); }
 template<> int Coord<Leftwards>::dirStep() const { return -1; }
 
 template<Direction D, typename T = double>
@@ -81,7 +78,7 @@ public:
 
 	explicit SeamHelper(CImg<T> const * _sc) : scores(_sc) {}
 
-	bool coordIsValid(Coord<D> const & c) const { return c.x < scores->width() && c.y < scores->height(); }
+	bool coordIsValid(Coord<D> const & c) const { return c.x() < scores->width() && c.y() < scores->height(); }
 
 	uint dirSize() const { return Coord<D>(scores->width(), scores->height()).dirComp(); }
 	uint orthSize() const { return Coord<D>(scores->width(), scores->height()).orthComp(); }
@@ -91,16 +88,17 @@ public:
 
 	// relative to Direction
 	//   TL | TR   TL   BL   BL ^ BR   BL   TL
-	//      |      <------      |      ------>
+	//      |F     <------R     |R     ------>F
 	//   BL V BR   TR   BR   TL | TR   BR   TR
 	// T at start; B at end in 'dir' Direction
 	// L at zero; R at max in 'orth' Direction
+	// F = Forward; R = Reverse
 	Coord<D> topLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newOrth(0).newDir(0) : c.newOrth(0); }
 	Coord<D> topRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newDir(0)            : c;            }
 	Coord<D> bottomLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newOrth(0) : c.newOrth(0).newDir(0); }
 	Coord<D> bottomRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c            : c.newOrth(0);           }
 
-	T lookup(Coord<D> const & c) const { return (*scores)(c.x, c.y); }
+	T lookup(Coord<D> const & c) const { return (*scores)(c.x(), c.y()); }
 
 	Coord<D> prevNeg(Coord<D> const & c) const { return Coord<D>(c).advPrev().advNeg(); }
 	Coord<D> prevPos(Coord<D> const & c) const { return Coord<D>(c).advPrev().advPos(); }
@@ -114,65 +112,107 @@ public:
 
 }
 
-template<Seam::Direction D, class T>
-std::vector<uint> findMinSeam(CImg<T> const & _img)
+template<Seams::Direction D>
+struct Seam
+{
+	std::vector<uint> indices;
+
+	Seam(uint _s) : indices(_s) {}
+
+	// NOTE: WARNING: no bounds checking
+	uint & operator[](uint _i) { return indices[_i]; }
+	uint operator[](uint _i) const { return indices[_i]; }
+
+	std::vector<uint>::iterator begin() { return indices.begin(); }
+	std::vector<uint>::iterator end() { return indices.end(); }
+
+	// TODO: make all this use Patches instead
+	template<typename U>
+	void modifyPatch(CImg<U> & _patch) const
+	{
+		Seams::SeamHelper<D, U> helper(&_patch);
+
+		if ( helper.dirSize() != indices.size() ) return; // TODO: WARNING: silent fail on dimension mismatch
+
+		for ( Seams::Coord<D> base = helper.topLeftCoord(); helper.coordIsValid(base); base.advNext() )
+			for ( Seams::Coord<D> c(base); c.orthComp() < helper.orthSize(); c.advPos() )
+				_patch(c.x(), c.y()) = float(_patch(c.x(), c.y())) * getVal(c, indices[c.dirComp()]);
+	}
+
+	float getVal(Seams::Coord<D> _c, uint _i) const
+	{
+		int d = _c.orthComp() > _i ? _c.orthComp() - _i : _i - _c.orthComp();
+		float ret = 0;
+
+		if ( d == 0 ) ret = 0.5;
+		else if ( d == 1 ) ret = 0.2;
+
+		if ( (D == Seams::Downwards || D == Seams::Leftwards) == (_c.orthComp() > indices[_c.dirComp()]) ) ret = 1.f - ret;
+		return ret;
+	}
+};
+
+//! Returns index of pixel on seam from either left edge (for Up and Down) or top edge (for Left or Right).
+template<Seams::Direction D, class T>
+Seam<D> findMinSeam(CImg<T> const & _img)
 {
 	CImg<double> costs(_img.width(), _img.height(), 1, 1, 0.f);
 	CImg<uint> refs(_img.width(), _img.height(), 1, 1, 0);
 
-	Seam::SeamHelper<D> helper(&costs);
+	Seams::SeamHelper<D> helper(&costs);
 
 	// first line
-	for ( Seam::Coord<D> c = helper.topLeftCoord(); helper.coordIsValid(c); c.advPos() )
-		costs(c.x, c.y) = _img(c.x, c.y);
+	for ( Seams::Coord<D> c = helper.topLeftCoord(); helper.coordIsValid(c); c.advPos() )
+		costs(c.x(), c.y()) = _img(c.x(), c.y());
 
 	// rest
-	Seam::Coord<D> base = helper.topLeftCoord();
+	Seams::Coord<D> base = helper.topLeftCoord();
 	for ( base.advNext(); helper.coordIsValid(base); base.advNext() )
 	{
-		Seam::Coord<D> c(base);
+		Seams::Coord<D> c(base);
 
 		// first pixel
-		Seam::Coord<D> m = helper.bestPrevPos(c);
-		costs(c.x, c.y) = _img(c.x, c.y) + costs(m.x, m.y);
-		refs(c.x, c.y) = m.orthComp() - c.orthComp();
+		Seams::Coord<D> m = helper.bestPrevPos(c);
+		costs(c.x(), c.y()) = _img(c.x(), c.y()) + costs(m.x(), m.y());
+		refs(c.x(), c.y()) = m.orthComp() - c.orthComp();
 
 		// middle pixels
 		for ( c.advPos(); c.orthComp() < helper.orthSize() - 1; c.advPos() )
 		{
 			m = helper.bestPrevBoth(c);
-			costs(c.x, c.y) = _img(c.x, c.y) + costs(m.x, m.y);
-			refs(c.x, c.y) = m.orthComp() - c.orthComp();
+			costs(c.x(), c.y()) = _img(c.x(), c.y()) + costs(m.x(), m.y());
+			refs(c.x(), c.y()) = m.orthComp() - c.orthComp();
 		}
 
 		// last pixel
 		m = helper.bestPrevNeg(c);
-		costs(c.x, c.y) = _img(c.x, c.y) + costs(m.x, m.y);
-		refs(c.x, c.y) = m.orthComp() - c.orthComp();
+		costs(c.x(), c.y()) = _img(c.x(), c.y()) + costs(m.x(), m.y());
+		refs(c.x(), c.y()) = m.orthComp() - c.orthComp();
 	}
 
 	// backtrack
-	std::vector<Seam::Coord<D> > seamCoords(helper.dirSize());
-	Seam::Coord<D> ptr = helper.bottomLeftCoord();
+	std::vector<Seams::Coord<D> > seamCoords(helper.dirSize());
+	Seams::Coord<D> ptr = helper.bottomLeftCoord();
 	seamCoords[ptr.dirComp()] = ptr;
 	for ( ; helper.coordIsValid(ptr); ptr.advPos() )
-		if ( costs(ptr.x, ptr.y) < costs(seamCoords[ptr.dirComp()].x, seamCoords[ptr.dirComp()].y) ) seamCoords[ptr.dirComp()] = ptr;
+		if ( costs(ptr.x(), ptr.y()) < costs(seamCoords[ptr.dirComp()].x(), seamCoords[ptr.dirComp()].y()) ) seamCoords[ptr.dirComp()] = ptr;
 
 	ptr = seamCoords[ptr.dirComp()];
-	Seam::Coord<D> pxy = ptr;
+	Seams::Coord<D> pxy = ptr;
 	for ( pxy.advPrev(); helper.coordIsValid(pxy); pxy.advPrev() )
 	{
-		ptr.orthComp() += refs(ptr.x, ptr.y);
+		ptr.orthComp() += refs(ptr.x(), ptr.y());
 		ptr.advPrev();
 		seamCoords[pxy.dirComp()] = ptr;
 	}
 
 	// copy to output
-	std::vector<uint> seam(seamCoords.size());
+	Seam<D> seam(seamCoords.size());
 	auto sit = seam.begin();
 	auto cit = seamCoords.begin();
 	for ( ; cit != seamCoords.end(); ++cit, ++sit ) *sit = (*cit).orthComp();
 
+#if ( 0 )
 	// DEBUG
 	for ( int j = 0; j < _img.height(); ++j )
 	{
@@ -185,24 +225,25 @@ std::vector<uint> findMinSeam(CImg<T> const & _img)
 	}
 	printf("\n");
 
-	for ( Seam::Coord<D> p = helper.topLeftCoord(); helper.coordIsValid(p); p.newOrth(0).advNext() )
+	for ( Seams::Coord<D> p = helper.topLeftCoord(); helper.coordIsValid(p); p.newOrth(0).advNext() )
 	{
 		printf("%u: ", seam[p.dirComp()]);
 
 		for ( ; helper.coordIsValid(p); p.advPos() )
-			printf("%6.1f%s ", _img(p.x, p.y), p.orthComp() == seam[p.dirComp()] ? "*" : " ");
+			printf("%6.1f%s ", _img(p.x(), p.y()), p.orthComp() == seam[p.dirComp()] ? "*" : " ");
 
 		printf("\n");
 	}
 	printf("\n");
 
 	printf("   ");
-	ptr = helper.bottomLeftCoord();
-	for ( ; helper.coordIsValid(ptr); ptr.advPos() )
-		printf(" %6.1f ", costs(ptr.x, ptr.y));
+	for ( Seams::Coord<D> p = helper.bottomLeftCoord(); helper.coordIsValid(p); p.advPos() )
+		printf("%7.1f%s ", costs(p.x(), p.y()), p.orthComp() == seam[p.dirComp()] ? "*" : " ");
 
 	printf("\n\n");
 	// DEBUG END
+#endif
+
 
 	return seam;
 }
