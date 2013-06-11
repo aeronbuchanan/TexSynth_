@@ -132,11 +132,17 @@ struct Seam
 	{
 		Seams::SeamHelper<D, U> helper(&_patch);
 
+		if ( helper.dirSize() != indices.size() ) printf("DIMENSION MISMATCH: SILENT FAIL!\n");
+
 		if ( helper.dirSize() != indices.size() ) return; // TODO: WARNING: silent fail on dimension mismatch
 
 		for ( Seams::Coord<D> base = helper.topLeftCoord(); helper.coordIsValid(base); base.advNext() )
 			for ( Seams::Coord<D> c(base); c.orthComp() < helper.orthSize(); c.advPos() )
-				_patch(c.x(), c.y()) = float(_patch(c.x(), c.y())) * getVal(c, indices[c.dirComp()]);
+			{
+				float v = getVal(c, indices[c.dirComp()]);
+				for ( uint k = 0; k < _patch.spectrum(); ++k )
+					_patch(c.x(), c.y(), k) = float(_patch(c.x(), c.y(), k)) * v;
+			}
 	}
 
 	float getVal(Seams::Coord<D> _c, uint _i) const

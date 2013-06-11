@@ -125,6 +125,22 @@ private:
 
 typedef VecN<uint, 2> Coord;
 
+template <typename T>
+class ColorPixel : public VecN<T, 3>
+{
+public:
+	ColorPixel() {}
+	ColorPixel(T const & _v) : VecN<T, 3>(_v) {}
+	ColorPixel(T const & _r, T const & _g, T const & _b) : VecN<T, 3>(_r, _g, _b) {}
+
+	T & r() { return VecN<T, 3>::x(); }
+	T r() const { return VecN<T, 3>::x(); }
+	T & g() { return VecN<T, 3>::y(); }
+	T g() const { return VecN<T, 3>::y(); }
+	T & b() { return VecN<T, 3>::z(); }
+	T b() const { return VecN<T, 3>::z(); }
+};
+
 template<uint N, uint M = 3, typename T = float>
 class ImagePatch
 {
@@ -147,13 +163,17 @@ public:
 	template<class U>
 	ImagePatch(CImg<U> const & _img, uint _x, uint _y) { this->extractFrom(_img, _x, _y); }
 
+	typedef VecN<T, M> Pixel;
+
 	// TODO: use size_t everywhere else too
-	size_t size() { return m_v.size(); }
+	size_t size() const { return m_v.size(); }
 	T & operator[](uint _k) { return m_v[_k]; }
 	T operator[](uint _k) const { return m_v[_k]; }
 
 	T & operator()(uint _i, uint _j, uint _c) { return m_v[kCoord(_i, _j, _c)]; }
 	T operator()(uint _i, uint _j, uint _c) const { return m_v[kCoord(_i, _j, _c)]; }
+
+	Pixel operator()(uint _i, uint _j) const { Pixel p; for ( uint c = 0; c < M; ++c ) p[c] = m_v[kCoord(_i, _j, c)]; return p; }
 
 	VEC asVecN() const { return m_v; }
 	VecN<T, N * N> channelAsVecN(uint _c) const
@@ -221,14 +241,36 @@ public:
 		return *this;
 	}
 
-	ImagePatch<N, M, T> & grayVersion() { return ImagePatch<N, M, T>(*this).convertToGray(); }
+	ImagePatch<N, M, T> grayVersion() const { return ImagePatch<N, M, T>(*this).convertToGray(); }
 
-	//ImagePAtch<N, M, T> & minWithSeam(Seam )
+	void print() const { m_v.print(); }
 
 	// TODO: refactor following for inter-type compatibility
 
+	ImagePatch<N, M, T> blendedWith(ImagePatch<N, M, T> const & _q, ImagePatch<N, M, T> const & _m) const
+	{
+		ImagePatch<N, M, T> p(*this);
+		for ( uint i = 0; i < size(); ++i )
+		{
+			float a = _m[i] / 255.f;
+			p[i] = (1.f - a) * _q[i] +  a * p[i];
+		}
+		return p;
+	}
+
+/*
+	ImagePatch<N, M, T> blendedWith(ImagePatch<N, M, T> const & _q, ImagePatch<N, 1, T> const & _m) const
+	{
+		ImagePatch<N, M, T> p(*this);
+		for ( uint j = 0; j < N; ++j )
+			for ( uint i = 0; i < N; ++i )
+				for ( uint c = 0; c < 3; ++c )
+					p(i, j, c) = _m(i, j) * p(i, j, c) + (1.f - _m(i, j)) * _q(i, j, c);
+		return p;
+	}
+*/
+
 	ImagePatch<N, M, T> & maskWith(ImagePatch<N, M, T> _m) { m_v.maskWith(_m.m_v); return *this; }
-	//ImagePatch<N, M, T> & maskWith(ImagePatch<N / M, 1, U> _m) { m_v.maskWith(ImagePatch<N, M, T>(_m)); return *this; }
 
 	static T sqrdError(ImagePatch<N, M, T> const & a, ImagePatch<N, M, T> const & b) { return diff(a,b).m_v.magnitudeSqrd(); }
 

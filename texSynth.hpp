@@ -97,6 +97,7 @@ void TexSynth::TexSynther<N, T>::extendTextureIn(cimg_library::CImg<U> & _I, cim
 			d.fill(1.f);
 			vSeam.modifyPatch(d);
 			hSeam.modifyPatch(d);
+			// TODO: move this loop to Patch
 			// Merge patches
 			for ( uint j = 0; j < N; ++j )
 				for ( uint i = 0; i < N; ++i )
