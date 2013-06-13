@@ -31,20 +31,21 @@ using cimg_library::CImg;
 #include "seam.h"
 using namespace TexSynth;
 
-int main()
+int main(int argc, char * * argv)
 {
+	for ( uint i = 0; i < argc; ++i )
+		printf("%u/%i: '%s'\n", i + 1, argc, argv[i] );
 
 	CImg<uchar> testUC("leaf.png"); printf("DEBUG: leaf<uchar>(0,0) = <%i, %i, %i>\n", testUC(0,0,0,0), testUC(0,0,0,1), testUC(0,0,0,2));
 	CImg<float> testFL("leaf.png"); printf("DEBUG: leaf<float>(0,0) = <%f, %f, %f>\n", testFL(0,0,0,0), testFL(0,0,0,1), testFL(0,0,0,2));
 
-	std::string filestem = "test";
+	std::string filestem = argc > 1 ? argv[1] : "grass";
 	std::string inputFilename = filestem + ".png";
 	std::string outputFilename = filestem + "_out.png";
 
 	CImg<uchar> image(inputFilename.c_str());
-	CImg<float> imgOut(image.width(), image.height(), 1, 3, 0);
 
-	static uint const N = 100;
+	static uint const N = 30;
 	typedef TexSynther<N>::Patch Patch;
 
 #if 0
@@ -81,7 +82,7 @@ int main()
 	left.modifyPatch(mask);
 	mask.save("left.png");
 
-#elif 1
+#elif 0
 
 	Patch mm(255.f);
 	Patch pp(image, 0, 0);
@@ -139,12 +140,42 @@ int main()
 
 	img.save("seam_test.png");
 
+#elif 1
+
+	CImg<float> imgOut(2 * image.width(), 2* image.height(), 1, 3);
+
+	float alpha = 1.f;
+	CImg<float> M(imgOut.width(), imgOut.height(), 1, 3, 1.f - alpha);
+
+	TexSynther<N>::PatchLibrary patches;
+
+	printf("Extracting patches... ");
+
+	for ( uint y = 0; y < image.height() - N; ++y )
+		for ( uint x = 0; x < image.width() - N; ++x )
+			patches.push_back(Patch(image, x, y));
+
+	printf("done.\n");
+
+	printf("Creating texture... ");
+
+	TexSynther<N> ts;
+	ts.addPatches(patches);
+	ts.extendTextureIn(imgOut, M);
+
+	printf("done.\n");
+
+	imgOut.save("outimage.png");
+
 #else
 
+	CImg<float> imgOut(image.width(), image.height(), 1, 3, 0);
 	std::vector<CImg<float> > imagePyramid;
 
+	uint minDim = 50; // std::min(image.height(), image.width());
+
 	CImg<float> imgInter(image);
-	while ( std::min(imgInter.height(), imgInter.width()) > 50 )
+	while ( std::min(imgInter.height(), imgInter.width()) > minDim )
 	{
 		printf("Adding I(%dx%d)\n", imgInter.width(), imgInter.height());
 		imagePyramid.push_back(imgInter);
@@ -168,7 +199,7 @@ int main()
 
 		printf("done.\n");
 
-		float alpha = 0.8; // weight of actual image in error blending with 'seed'
+		float alpha = 1.f; // weight of actual image in error blending with 'seed'
 		CImg<float> M(imgInter.width(), imgInter.height(), 1, 3, 1.f - alpha);
 
 		printf("Creating texture for level %u/%d (%d)...\n", i + 1, imagePyramid.size(), N);

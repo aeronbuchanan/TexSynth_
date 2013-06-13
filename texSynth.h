@@ -55,7 +55,6 @@ private:
 	uint m_patchWidth;
 };
 
-
 } // end namespace TexSynth
 
 #include "texSynth.hpp"

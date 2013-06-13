@@ -78,7 +78,7 @@ public:
 
 	explicit SeamHelper(CImg<T> const * _sc) : scores(_sc) {}
 
-	bool coordIsValid(Coord<D> const & c) const { return c.x() < scores->width() && c.y() < scores->height(); }
+	bool coordIsValid(Coord<D> const & c) const { return c.x() >= 0 && c.y() >= 0 && c.x() < scores->width() && c.y() < scores->height(); }
 
 	uint dirSize() const { return Coord<D>(scores->width(), scores->height()).dirComp(); }
 	uint orthSize() const { return Coord<D>(scores->width(), scores->height()).orthComp(); }
@@ -140,7 +140,7 @@ struct Seam
 			for ( Seams::Coord<D> c(base); c.orthComp() < helper.orthSize(); c.advPos() )
 			{
 				float v = getVal(c, indices[c.dirComp()]);
-				for ( uint k = 0; k < _patch.spectrum(); ++k )
+				for ( int k = 0; k < _patch.spectrum(); ++k )
 					_patch(c.x(), c.y(), k) = float(_patch(c.x(), c.y(), k)) * v;
 			}
 	}
