@@ -28,6 +28,39 @@ using cimg_library::CImg;
 namespace TexSynth
 {
 
+//! Another matrix class
+template<typename T>
+class Table
+{
+private:
+	// ordering is row wise (0,0) (1,0) (2,0) (3,0) ...
+	uint kCoord(uint _i, uint _j) const { return (_j * m_width) + _i; } //!< convert (i, j) coord to linear index
+	//uint iCoord(uint _k) const { return ( _k / m_width ) % m_height; } //!< convert linear index to horizontal patch coord
+	//uint jCoord(uint _k) const { return ( _k / m_width ) / m_height; } //!< convert linear index to vertical patch coord
+
+	uint m_width;
+	uint m_height;
+	std::vector<T> m_vec;
+
+	void init(T const & _v) { m_vec.resize(m_width * m_height, _v); }
+
+public:
+	Table(uint _width, uint _height) : m_width(_width), m_height(_height) { init(T()); }
+	Table(uint _width, uint _height, T const & _v) : m_width(_width), m_height(_height) { init(_v); }
+
+	// TODO: use size_t everywhere else too
+	size_t size() const { return m_width * m_height; }
+	size_t width() const { return m_width; }
+	size_t height() const { return m_height; }
+
+	T & operator[](uint _k) { return m_vec[_k]; }
+	T operator[](uint _k) const { return m_vec[_k]; }
+
+	T & operator()(uint _i, uint _j) { return m_vec[kCoord(_i, _j)]; }
+	T operator()(uint _i, uint _j) const { return m_vec[kCoord(_i, _j)]; }
+};
+
+
 namespace Seams
 {
 
@@ -70,13 +103,13 @@ template<> uint & Coord<Leftwards>::orthComp() { return y(); }
 template<> uint & Coord<Leftwards>::dirComp() { return x(); }
 template<> int Coord<Leftwards>::dirStep() const { return -1; }
 
-template<Direction D, typename T = double>
+template<Direction D>
 class SeamHelper
 {
 public:
-	CImg<T> const * scores;
+	Table<double> const * scores;
 
-	explicit SeamHelper(CImg<T> const * _sc) : scores(_sc) {}
+	explicit SeamHelper(Table<double> const * _sc) : scores(_sc) {}
 
 	bool coordIsValid(Coord<D> const & c) const { return c.x() >= 0 && c.y() >= 0 && c.x() < scores->width() && c.y() < scores->height(); }
 
@@ -98,7 +131,7 @@ public:
 	Coord<D> bottomLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newOrth(0) : c.newOrth(0).newDir(0); }
 	Coord<D> bottomRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c            : c.newOrth(0);           }
 
-	T lookup(Coord<D> const & c) const { return (*scores)(c.x(), c.y()); }
+	double lookup(Coord<D> const & c) const { return (*scores)(c.x(), c.y()); }
 
 	Coord<D> prevNeg(Coord<D> const & c) const { return Coord<D>(c).advPrev().advNeg(); }
 	Coord<D> prevPos(Coord<D> const & c) const { return Coord<D>(c).advPrev().advPos(); }
@@ -130,7 +163,16 @@ struct Seam
 	template<typename U>
 	void modifyPatch(CImg<U> & _patch) const
 	{
-		Seams::SeamHelper<D, U> helper(&_patch);
+		CImg<U> ones(_patch.width(), _patch.height(), 1, _patch.spectrum(), 255);
+		this->modifyPatch(_patch, ones);
+	}
+
+	// mask >= 1 marks areas that can be modified
+	// i.e. where mask(x,y) is < 1.f, result is always patch(x,y)
+	void modifyPatch(CImg<float> & _patch, CImg<float> const & _mask) const
+	{
+		Table<double> ref(_patch.width(), _patch.height());
+		Seams::SeamHelper<D> helper(&ref);
 
 		if ( helper.dirSize() != indices.size() ) printf("DIMENSION MISMATCH: SILENT FAIL!\n");
 
@@ -139,9 +181,12 @@ struct Seam
 		for ( Seams::Coord<D> base = helper.topLeftCoord(); helper.coordIsValid(base); base.advNext() )
 			for ( Seams::Coord<D> c(base); c.orthComp() < helper.orthSize(); c.advPos() )
 			{
-				float v = getVal(c, indices[c.dirComp()]);
-				for ( int k = 0; k < _patch.spectrum(); ++k )
-					_patch(c.x(), c.y(), k) = float(_patch(c.x(), c.y(), k)) * v;
+				if ( _mask(c.x(), c.y(), 0) >= 1 )
+				{
+					float v = getVal(c, indices[c.dirComp()]);
+					for ( int k = 0; k < _patch.spectrum(); ++k )
+						_patch(c.x(), c.y(), k) = float(_patch(c.x(), c.y(), k)) * v;
+				}
 			}
 	}
 
@@ -159,11 +204,11 @@ struct Seam
 };
 
 //! Returns index of pixel on seam from either left edge (for Up and Down) or top edge (for Left or Right).
-template<Seams::Direction D, class T>
-Seam<D> findMinSeam(CImg<T> const & _img)
+template<Seams::Direction D>
+Seam<D> findMinSeam(CImg<float> const & _img)
 {
-	CImg<double> costs(_img.width(), _img.height(), 1, 1, 0.f);
-	CImg<uint> refs(_img.width(), _img.height(), 1, 1, 0);
+	Table<double> costs(_img.width(), _img.height(), 0.f);
+	Table<uint> refs(_img.width(), _img.height(), 0);
 
 	Seams::SeamHelper<D> helper(&costs);
 

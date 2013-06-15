@@ -31,20 +31,18 @@
 namespace TexSynth
 {
 
-template<uint N, typename T = float>
+template<uint N>
 class TexSynther
 {
 public:
-	typedef ImagePatch<N, 3, T> Patch;
+	typedef ImagePatch<N, 3> Patch;
 	typedef std::vector<Patch> PatchLibrary;
 
 	TexSynther() : m_patchWidth(N) { }
 
-	template<class U>
-	void extendTextureIn(cimg_library::CImg<U> & _image, cimg_library::CImg<U> & _mask) const;
+	void extendTextureIn(cimg_library::CImg<float> & _image, cimg_library::CImg<float> & _mask) const;
 
-	template<class U>
-	uint selectPatchFor(cimg_library::CImg<U> & _image, cimg_library:: CImg<U> & _mask, uint _x, uint _y) const;
+	uint selectPatchFor(cimg_library::CImg<float> & _image, cimg_library:: CImg<float> & _mask, uint _x, uint _y) const;
 
 	void addPatches(PatchLibrary const & _pl) { m_patches.insert( m_patches.end(), _pl.begin(), _pl.end() ); }
 	void clearPatches() { m_patches.clear(); }

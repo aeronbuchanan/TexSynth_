@@ -162,11 +162,11 @@ protected:
 #undef FOREACH_
 };
 
-template<uint N, uint M = 3, typename T = float>
+template<uint N, uint M = 3>
 class ImagePatch
 {	
 protected:
-	typedef VecN<T, N * N * M> ThisVecN;
+	typedef VecN<float, N * N * M> ThisVecN;
 
 	// ordering (inner -> outer) is (c,i,j)
 	// optimizes conversion to gray, etc
@@ -183,10 +183,9 @@ private:
 
 public:
 	ImagePatch() {}
-	explicit ImagePatch(T _v) : m_vec(_v) {}
+	explicit ImagePatch(float _v) : m_vec(_v) {}
 	explicit ImagePatch(ThisVecN _v) : m_vec(_v) {}
-	template<class U>
-	ImagePatch(CImg<U> const & _img, uint _x, uint _y) { this->extractFrom(_img, _x, _y); }
+	ImagePatch(CImg<float> const & _img, uint _x, uint _y) { this->extractFrom(_img, _x, _y); }
 
 	// TODO: use size_t everywhere else too
 	size_t size() const { return N * N * M; }
@@ -194,19 +193,18 @@ public:
 	size_t height() const { return N; }
 	size_t depth() const { return M; }
 
-	T & operator[](uint _k) { return m_vec[_k]; }
-	T operator[](uint _k) const { return m_vec[_k]; }
+	float & operator[](uint _k) { return m_vec[_k]; }
+	float operator[](uint _k) const { return m_vec[_k]; }
 
-	T & operator()(uint _i, uint _j, uint _c) { return (*this)[kCoord(_i, _j, _c)]; }
-	T operator()(uint _i, uint _j, uint _c) const { return (*this)[kCoord(_i, _j, _c)]; }
+	float & operator()(uint _i, uint _j, uint _c) { return (*this)[kCoord(_i, _j, _c)]; }
+	float operator()(uint _i, uint _j, uint _c) const { return (*this)[kCoord(_i, _j, _c)]; }
 
-	template<class U>
-	bool extractFrom(CImg<U> const & _img, uint _x, uint _y)
+	bool extractFrom(CImg<float> const & _img, uint _x, uint _y)
 	{
 		bool badCoords = false;
 
-		if ( _x > _img.width() - N - 1 ) { printf(" [extract: bad x] "); badCoords = true; }
-		if ( _y > _img.height() - N - 1 ) { printf(" [extract: bad y] "); badCoords = true; }
+		if ( _x > _img.width() - N ) { printf(" [extract: bad x] "); badCoords = true; }
+		if ( _y > _img.height() - N ) { printf(" [extract: bad y] "); badCoords = true; }
 
 		if ( !badCoords )
 		{
@@ -218,13 +216,12 @@ public:
 		return badCoords;
 	}
 
-	template<class U>
-	bool insertInto(CImg<U> & _img, uint _x, uint _y) const
+	bool insertInto(CImg<float> & _img, uint _x, uint _y) const
 	{
 		bool badCoords = false;
 
-		if ( _x > _img.width() - N - 1 ) { printf(" [insert: bad x] "); badCoords = true; }
-		if ( _y > _img.height() - N - 1 ) { printf(" [insert: bad y] "); badCoords = true; }
+		if ( _x > _img.width() - N ) { printf(" [insert: bad x] "); badCoords = true; }
+		if ( _y > _img.height() - N ) { printf(" [insert: bad y] "); badCoords = true; }
 
 		if ( !badCoords )
 		{
@@ -236,7 +233,7 @@ public:
 		return badCoords;
 	}
 
-	ImagePatch<N, M, T> & convertToGray()
+	ImagePatch<N, M> & convertToGray()
 	{
 		if ( M > 1 )
 		{
@@ -245,27 +242,29 @@ public:
 			{
 				for ( uint i = 0; i < N; ++i )
 				{
-					T v = T();
+					float v = 0;
 					for ( uint c = 0; c < M; ++c )
 						v += (*this)[kCoord(i, j, c)] / 3.f;
 					for ( uint c = 0; c < M; ++c )
-						(*this)[kCoord(i, j, c)] = v;
+						(*this)[kCoord(i, j, c)] = v / 3.f;
 				}
 			}
 		}
 		return *this;
 	}
 
-	ImagePatch<N, M, T> grayVersion() const { return ImagePatch<N, M, T>(*this).convertToGray(); }
+	ImagePatch<N, M> grayVersion() const { return ImagePatch<N, M>(*this).convertToGray(); }
 
 	void print() const { m_vec.print(); }
 	void printn() const { m_vec.printn(); }
+	void save(std::string const & _name) const { this->save(_name.c_str()); }
+	void save(char * const _name) const { CImg<float> t(N, N, 1, M); insertInto(t, 0, 0); t.save(_name); }
 
 	// TODO: refactor following for inter-type compatibility
 
-	ImagePatch<N, M, T> blendedWith(ImagePatch<N, M, T> const & _q, ImagePatch<N, M, T> const & _m) const
+	ImagePatch<N, M> blendedWith(ImagePatch<N, M> const & _q, ImagePatch<N, M> const & _m) const
 	{
-		ImagePatch<N, M, T> p(*this);
+		ImagePatch<N, M> p(*this);
 		for ( uint i = 0; i < this->size(); ++i )
 		{
 			float a = _m[i] / 255.f;
@@ -274,16 +273,15 @@ public:
 		return p;
 	}
 
-	ImagePatch<N, M, T> & maskWith(ImagePatch<N, M, T> _m) { m_vec.maskWith(_m.m_vec); return *this; }
+	ImagePatch<N, M> & maskWith(ImagePatch<N, M> _m) { m_vec.maskWith(_m.m_vec); return *this; }
 
-	static T sqrdError(ImagePatch<N, M, T> const & _a, ImagePatch<N, M, T> const & _b) { return diff(_a, _b).m_v.magnitudeSqrd(); }
+	static float sqrdError(ImagePatch<N, M> const & _a, ImagePatch<N, M> const & _b) { return diff(_a, _b).m_v.magnitudeSqrd(); }
 
-	static T maskedSqrdError(ImagePatch<N, M, T> const & _a, ImagePatch<N, M, T> const & _b, ImagePatch<N, M, T> const & _m) { return diff(_a, _b).maskWith(_m).m_vec.magnitudeSqrd(); }
+	static float maskedSqrdError(ImagePatch<N, M> const & _a, ImagePatch<N, M> const & _b, ImagePatch<N, M> const & _m) { return diff(_a, _b).maskWith(_m).m_vec.magnitudeSqrd(); }
 
-	static ImagePatch<N, M, T> diff(ImagePatch<N, M, T> const & a, ImagePatch<N, M, T> const & b) { return ImagePatch<N, M, T>(a.m_vec - b.m_vec); }
-	static ImagePatch<N, M, T> diffSqrd(ImagePatch<N, M, T> const & a, ImagePatch<N, M, T> const & b) { return ImagePatch<N, M, T>( (a.m_vec - b.m_vec).maskWith(a.m_vec - b.m_vec) ); }
-
-	static ImagePatch<N, M, T> abs(ImagePatch<N, M, T> const & a) { return ImagePatch<N, M, T>(a.m_vec.asAbsolute()); }
+	static ImagePatch<N, M> diff(ImagePatch<N, M> const & a, ImagePatch<N, M> const & b) { return ImagePatch<N, M>(a.m_vec - b.m_vec); }
+	static ImagePatch<N, M> diffSqrd(ImagePatch<N, M> const & a, ImagePatch<N, M> const & b) { return ImagePatch<N, M>( (a.m_vec - b.m_vec).maskWith(a.m_vec - b.m_vec) ); }
+	static ImagePatch<N, M> abs(ImagePatch<N, M> const & a) { return ImagePatch<N, M>(a.m_vec.asAbsolute()); }
 
 /*
 bool test()

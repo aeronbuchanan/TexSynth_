@@ -22,9 +22,8 @@
 #include <limits>
 #include <algorithm>
 
-template<uint N, typename T>
-template<class U>
-uint TexSynth::TexSynther<N, T>::selectPatchFor(cimg_library::CImg<U> & _I,cimg_library:: CImg<U> & _M, uint _x, uint _y) const
+template<uint N>
+uint TexSynth::TexSynther<N>::selectPatchFor(cimg_library::CImg<float> & _I, cimg_library::CImg<float> & _M, uint _x, uint _y) const
 {
 	// printf("selectPatchFor\n");
 
@@ -42,6 +41,7 @@ uint TexSynth::TexSynther<N, T>::selectPatchFor(cimg_library::CImg<U> & _I,cimg_
 	for ( uint i = 0; i < m_patches.size(); ++i )
 	{
 		double d = Patch::maskedSqrdError(p, m_patches[i], m);
+
 		if ( d < threshold )
 		{
 			heap.push_back(std::make_pair(d, i));
@@ -67,71 +67,107 @@ uint TexSynth::TexSynther<N, T>::selectPatchFor(cimg_library::CImg<U> & _I,cimg_
 	while (	count < CANDIDATE_MAX && i > 0 && heap[--i].first <= threshold	)
 		++count;
 
-	// printf("DEBUG stats: %lu in total; ", m_patches.size());
+	printf("DEBUG stats: %lu in total; %lu in selection; %d under threshold (%f); ", m_patches.size(), heap.size(), count, threshold);
 
-	if ( count == 0 ) return printf("\n"); // TODO: throw, etc.
+	if ( count == 0 ) return printf("ACHTUNG!\n"); // TODO: throw, etc.
 
 	uint s = heap.size() - 1 - (rand() % count); // selection
 
-	// printf("%lu in selection; %d under threshold (%f); final selection = %i\n", heap.size(), count, threshold, heap[s].second);
+	printf("final selection = %i\n", heap[s].second);
 
 	return heap[s].second;
 }
 
-template<uint N, typename T>
-template<class U>
-void TexSynth::TexSynther<N, T>::extendTextureIn(cimg_library::CImg<U> & _img, cimg_library:: CImg<U> & _msk) const
+template<uint N>
+void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, cimg_library::CImg<float> & _msk) const
 {
 	//printf("extendTextureIn\n");
 
 	Patch ones(255.f);
 
-	CImg<U> debug(_img);
+	CImg<float> debug(_img);
 
 	uint shift = m_patchWidth * 0.6;
 
 	printf("I(%dx%d) and %d\n", _img.width(), _img.height(), m_patchWidth);
 
-	for ( uint y = 0; y < _img.height() - m_patchWidth; y += shift )
-		for ( uint x = 0; x < _img.width() - m_patchWidth; x += shift )
+	uint iii = 0;
+	char name[100];
+
+	for ( uint y = 0; y < _img.height(); y += shift )
+	{
+		uint yy = y;
+		if ( yy >= _img.height() - m_patchWidth )
 		{
-			Patch p = m_patches[selectPatchFor(_img, _msk, x, y)];
+			yy = _img.height() - m_patchWidth;
+			y = _img.height();
+		}
+
+		for ( uint x = 0; x < _img.width(); x += shift )
+		{
+			uint xx = x;
+			if ( xx >= _img.width() - m_patchWidth )
+			{
+				xx = _img.width() - m_patchWidth;
+				x = _img.width();
+			}
+
+			Patch p = m_patches[selectPatchFor(_img, _msk, xx, yy)];
 
 			// DEBUG
-			p.insertInto(debug, x, y);
+			p.insertInto(debug, xx, yy);
+
+			float epsilon = 0.1;
 
 			// TODO: put the following somewhere more general
-			Patch ii(_img, x, y);
-			Patch mm(_msk, x, y);
-			Patch dd = Patch::diffSqrd(p, ii);
-			for ( uint i = 0; i < dd.size(); ++i ) dd[i] = mm[i] != 255.f ? std::numeric_limits<T>::max() : dd[i];
-			CImg<float> d(N, N, 1, 3);
-			dd.insertInto(d, 0, 0);
+			Patch image(_img, xx, yy);
+			Patch mask(_msk, xx, yy);
+			Patch diffs = Patch::diffSqrd(p, image);
+			for ( uint i = 0; i < diffs.size(); ++i ) diffs[i] = mask[i] < 255.f - epsilon ? std::numeric_limits<float>::max() : diffs[i];
+			CImg<float> diffsCImg(N, N, 1, 3);
+			diffs.insertInto(diffsCImg, 0, 0);
 
 			// TODO: do all four directions
-			CImg<float> m(N, N, 1, 3, 255);
-			if ( x > 0 )
+			CImg<float> maskCImg(N, N, 1, 3);
+			mask.insertInto(maskCImg,0 ,0);
+			CImg<float> blendCImg(N, N, 1, 3, 255);
+			if ( xx > 0 )
 			{
-				auto vSeam = findMinSeam<Seams::Downwards>(d);
-				vSeam.modifyPatch(m);
+				auto vSeam = findMinSeam<Seams::Downwards>(diffsCImg);
+				vSeam.modifyPatch(blendCImg, maskCImg);
 			}
-			if ( y > 0 )
+			if ( yy > 0 )
 			{
-				auto hSeam = findMinSeam<Seams::Leftwards>(d);
-				hSeam.modifyPatch(m);
+				auto hSeam = findMinSeam<Seams::Leftwards>(diffsCImg);
+				hSeam.modifyPatch(blendCImg, maskCImg);
 			}
 
-			//char name[100];
-			//sprintf(name, "patch_mask_%d.png", (y / shift) * (_img.width() / shift) + (x / shift));
-			//m.save(name);
+			sprintf(name, "debug_%s_%d.png", "selectMask", iii);
+			mask.save(name);
+			sprintf(name, "debug_%s_%d.png", "blendMask", iii);
+			blendCImg.save(name);
+			sprintf(name, "debug_%s_%d.png", "patchChosen", iii);
+			p.save(name);
+			sprintf(name, "debug_%s_%d.png", "patchExtracted", iii);
+			image.save(name);
 
 			// Merge patches
-			mm.extractFrom(m, 0, 0);
-			p = p.blendedWith(ii, mm);
-			p.insertInto(_img, x, y);
+			mask.extractFrom(blendCImg, 0, 0);
+			p = p.blendedWith(image, mask);
+			p.insertInto(_img, xx, yy);
 
-			ones.insertInto(_msk, x, y);
+			ones.insertInto(_msk, xx, yy);
+
+			sprintf(name, "debug_%s_%d.png", "fullImage", iii);
+			_img.save(name);
+			sprintf(name, "debug_%s_%d.png", "fullMask", iii);
+			_msk.save(name);
+			sprintf(name, "debug_%s_%d.png", "patchBlended", iii);
+			p.save(name);
+
+			iii++;
 		}
+	}
 
 	debug.save("debug.png");
 }

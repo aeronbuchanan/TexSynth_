@@ -33,6 +33,8 @@ using namespace TexSynth;
 
 int main(int argc, char * * argv)
 {
+	srand(0);
+
 	for ( uint i = 0; i < argc; ++i )
 		printf("%u/%i: '%s'\n", i + 1, argc, argv[i] );
 
@@ -142,7 +144,9 @@ int main(int argc, char * * argv)
 
 #elif 1
 
-	CImg<float> imgOut(2 * image.width(), 2* image.height(), 1, 3);
+	int newWidth = 60; // N * (image.width() / N) * 3;
+	int newHeight = 60; // N * (image.height() / N) * 3;
+	CImg<float> imgOut(newWidth, newHeight, 1, 3, 0.f);
 
 	float alpha = 1.f;
 	CImg<float> M(imgOut.width(), imgOut.height(), 1, 3, 1.f - alpha);
@@ -151,8 +155,8 @@ int main(int argc, char * * argv)
 
 	printf("Extracting patches... ");
 
-	for ( uint y = 0; y < image.height() - N; ++y )
-		for ( uint x = 0; x < image.width() - N; ++x )
+	for ( uint y = 0; y <= image.height() - N; ++y )
+		for ( uint x = 0; x <= image.width() - N; ++x )
 			patches.push_back(Patch(image, x, y));
 
 	printf("done.\n");
@@ -165,7 +169,7 @@ int main(int argc, char * * argv)
 
 	printf("done.\n");
 
-	imgOut.save("outimage.png");
+	imgOut.save(outputFilename.c_str());
 
 #else
 
@@ -193,8 +197,8 @@ int main(int argc, char * * argv)
 
 		printf("Extracting patches for level %u/%d (%dx%d)... ", i + 1, imagePyramid.size(), imgInter.width(), imgInter.height());
 
-		for ( uint y = 0; y < imgInter.height() - N; ++y )
-			for ( uint x = 0; x < imgInter.width() - N; ++x )
+		for ( uint y = 0; y <= imgInter.height() - N; ++y )
+			for ( uint x = 0; x <= imgInter.width() - N; ++x )
 				patches.push_back(Patch(imgInter, x, y));
 
 		printf("done.\n");
