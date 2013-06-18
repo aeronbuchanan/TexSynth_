@@ -53,10 +53,15 @@ int main(int argc, char * * argv)
 	typedef TexSynther<N>::Patch Patch;
 
 	Table<float> tab(N, N, 0.f);
-	tab(0, 0) = 256.f;
+	tab(0, 0) = 556.f;
+	tab(1, 0) = 355.f;
 	tab(1, 1) = 255.f;
-	tab(0, 1) = 255.f;
-	findMinCircSeam(tab, tab);
+	tab(2, 0) = 325.f;
+	tab(2, 1) = 299.f;
+	tab(3, 0) = 304.f;
+	tab(0, 2) = 300.f;
+	tab(0, 1) = 999.f;
+	CircSeams::findMin(tab, tab);
 
 #if 0
 
