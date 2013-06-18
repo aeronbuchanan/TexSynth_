@@ -26,141 +26,10 @@
 #include "CImg.h"
 using cimg_library::CImg;
 
-typedef unsigned char uchar;
+#include "table.h"
 
 namespace TexSynth
 {
-
-//! Useful debug typename identifier
-template<typename T> std::string identifyType(T const &) { return "unknown"; }
-template<> std::string identifyType(int const &) { return "int"; }
-template<> std::string identifyType(uint const &) { return "uint"; }
-template<> std::string identifyType(char const &) { return "char"; }
-template<> std::string identifyType(uchar const &) { return "uchar"; }
-template<> std::string identifyType(float const &) { return "float"; }
-template<> std::string identifyType(double const &) { return "double"; }
-
-
-//! Another fixed vector class
-template<class T, uint N>
-class VecN
-{
-
-#define FOREACH_(I,N) for( uint (I) = 0; (I) < (N); ++(I) )
-
-public:
-	VecN() { setAll(T()); }
-	explicit VecN(T const & _v) { setAll(_v); }
-	explicit VecN(T const * _v) { FOREACH_(i,N) { m_v[i] = _v[i]; } }
-
-	template<class Y, uint M>
-	VecN(VecN<Y, M> const & _v) { setAll(0); FOREACH_(i, std::min(N,M)) { m_v[i] = _v[i]; } }
-
-	// TODO: accept {} list constructors
-	VecN(T const & _v0, T const & _v1)
-	{
-		getElement<0>() = _v0;
-		getElement<1>() = _v1;
-	}
-	VecN(T const & _v0, T const & _v1, T const & _v2)
-	{
-		getElement<0>() = _v0;
-		getElement<1>() = _v1;
-		getElement<2>() = _v2;
-	}
-	VecN(T const & _v0, T const & _v1, T const & _v2, T const & _v3)
-	{
-		getElement<0>() = _v0;
-		getElement<1>() = _v1;
-		getElement<2>() = _v2;
-		getElement<3>() = _v3;
-	}
-
-	VecN<T, N> & operator=(T const _v) { return setAll(_v); }
-	VecN<T, N> & operator=(T const * _v) { FOREACH_(i,N) { m_v[i] = _v[i]; } return *this; }
-	template<class Y>
-	VecN<T, N> & operator=(VecN<Y,N> const & _v) { FOREACH_(i,N) { m_v[i] = _v[i]; } return *this; }
-
-	// TODO: WARNING: silently returns last element if index out-of-bounds
-	T & operator[](uint _i) { return m_v[std::min(_i, N - 1)]; }
-	T operator[](uint _i) const { return m_v[std::min(_i, N - 1)]; }
-
-private:
-	template<uint I>
-	T & getElement() { static_assert(I < N, "Index out-of-bounds."); return m_v[I]; }
-	template<uint I>
-	T getElement() const { static_assert(I < N, "Index out-of-bounds."); return m_v[I]; }
-
-public:
-	T & x() { return getElement<0>(); }
-	T x() const { return getElement<0>(); }
-	T & y() { return getElement<1>(); }
-	T y() const { return getElement<1>(); }
-	T & z() { return getElement<2>(); }
-	T z() const { return getElement<2>(); }
-	T & w() { return getElement<3>(); }
-	T w() const { return getElement<3>(); }
-
-	template<class Y>
-	VecN<T, N> & operator+=(VecN<Y, N> const & _v) { FOREACH_(i,N) { m_v[i] += _v[i]; } return *this; }
-	VecN<T, N> & operator+=(T _v) { return *this += VecN<T, N>(_v); }
-
-	template<class Y>
-	VecN<T, N> & operator-=(VecN<Y, N> const & _v) { return *this += (-_v); }
-	VecN<T, N> & operator-=(T _v) { return *this -= VecN<T, N>(_v); }
-
-	VecN<T, N> & operator*=(T _v) { FOREACH_(i,N) { m_v[i] *= _v; } return *this; }
-	VecN<T, N> & operator/=(T _v) { FOREACH_(i,N) { m_v[i] /= _v; } return *this; }
-
-	template<class Y>
-	VecN<T, N> operator+(VecN<Y,N> const & _v) const { return VecN<Y,N>(*this) += _v; }
-	VecN<T, N> operator+(T _v) const { return VecN<T, N>(*this) += _v; }
-
-	template<class Y>
-	VecN<T, N> operator-(VecN<Y, N> const & _v) const { return VecN<Y,N>(*this) -= _v; }
-	VecN<T, N> operator-(T _v) const { return VecN<T, N>(*this) -= _v; }
-
-	VecN<T, N> operator*(T _v) const { return VecN<T, N>(*this) *= _v; }
-	VecN<T, N> operator/(T _v) const { return VecN<T, N>(*this) /= _v; }
-
-	VecN<T, N> operator-() const { return VecN<T, N>(*this) *= -1; }
-
-	VecN<T, N> & operator++() { return *this += 1; }
-	VecN<T, N> & operator--() { return *this -= 1; }
-
-	VecN<T, N> operator++(int) { VecN<T, N> pre(*this); ++(*this); return pre; }
-	VecN<T, N> operator--(int) { VecN<T, N> pre(*this); --(*this); return pre; }
-
-	template<class Y>
-	T dot(VecN<Y,N> const & _v) const { T k = T(); FOREACH_(i,N) { k += m_v[i] * _v[i]; } return k; }
-
-	//! Element-wise multiplication (dot-multiply of matlab)
-	template<class Y>
-	VecN<T, N> maskedWith(VecN<Y, N> const & _m) const { VecN<T, N> v(*this); FOREACH_(i,N) { v[i] *= _m[i]; } return v; }
-	//! In-place element-wise multiplication (dot-multiply of matlab)
-	template<class Y>
-	VecN<T, N> & maskWith(VecN<Y, N> const & _m) { FOREACH_(i,N) { m_v[i] *= _m[i]; } return *this; }
-
-	T magnitudeSqrd() const { return this->dot(*this); }
-	T magnitude() const { return sqrt(magnitudeSqrd()); }
-	template<class Y>
-	T maskedMagSqrd(VecN<Y, N> const & _m) const { return this->maskedWith(_m).dot(*this); }
-
-	VecN<T, N> & makeAbsolute() { FOREACH_(i,N) { m_v[i] = std::abs(m_v[i]); } return *this; }
-	VecN<T, N> asAbsolute() const { return VecN<T, N>(*this).makeAbsolute(); }
-
-	void print() const { std::cout << "("; FOREACH_(i, (N - 1)) { std::cout << m_v[i] << ", "; } std::cout << m_v[N - 1] << ")"; }
-	void printn() const { print(); std::cout << std::endl; }
-
-	static inline uint size() { return N; }
-
-protected:
-	VecN<T, N> & setAll(T _v) { FOREACH_(i,N) { m_v[i] = _v; } return *this; }
-
-	T m_v[N];
-
-#undef FOREACH_
-};
 
 template<uint N, uint M = 3>
 class ImagePatch
@@ -183,8 +52,9 @@ private:
 
 public:
 	ImagePatch() {}
-	explicit ImagePatch(float _v) : m_vec(_v) {}
-	explicit ImagePatch(ThisVecN _v) : m_vec(_v) {}
+	ImagePatch(float _v) : m_vec(_v) {}
+	ImagePatch(ThisVecN _v) : m_vec(_v) {}
+	ImagePatch(Table<float> _t) { this->setFromTable(_t); }
 	ImagePatch(CImg<float> const & _img, uint _x, uint _y) { this->extractFrom(_img, _x, _y); }
 
 	// TODO: use size_t everywhere else too
@@ -198,6 +68,48 @@ public:
 
 	float & operator()(uint _i, uint _j, uint _c) { return (*this)[kCoord(_i, _j, _c)]; }
 	float operator()(uint _i, uint _j, uint _c) const { return (*this)[kCoord(_i, _j, _c)]; }
+
+	ImagePatch<N, M> & setFromTable(Table<float> const & _t)
+	{
+		// TODO
+		if ( _t.width() != N || _t.height() != N )
+			printf("WARNING: Table -> ImagePatch dimension mismatch.\n");
+
+		/*
+		ImagePatch<N, M> p;
+		for ( uint j = 0; j < N; ++j )
+			for ( uint i = 0; i < N; ++i )
+				for ( uint c = 0; c < M; ++c )
+					(*this)(i, j, c) = _t(i, j);
+		*/
+
+		// assuming both are row-wise
+		uint i = 0;
+		uint k = 0;
+		while ( i < this->size() )
+		{
+			(*this)[i] = _t[k];
+			++i;
+			if ( i % M == 0 )
+				++k;
+		}
+		return *this;
+	}
+
+	Table<float> asTable() const { return this->grayVersion().channelAsTable(0); }
+	Table<float> channelAsTable(uint _ch) const
+	{
+		// TODO: silently returns zero table if _ch > depth()
+		Table<float> t(width(), height(), 0.f);
+		// assuming both are row-wise
+		uint k = 0;
+		for ( uint i = 0; i < this->size(); ++i )
+			if ( i % M == _ch )
+				t[k++] = (*this)[i];
+
+		return t;
+	}
+
 
 	bool extractFrom(CImg<float> const & _img, uint _x, uint _y)
 	{
@@ -244,9 +156,9 @@ public:
 				{
 					float v = 0;
 					for ( uint c = 0; c < M; ++c )
-						v += (*this)[kCoord(i, j, c)] / 3.f;
+						v += (*this)[kCoord(i, j, c)];
 					for ( uint c = 0; c < M; ++c )
-						(*this)[kCoord(i, j, c)] = v / 3.f;
+						(*this)[kCoord(i, j, c)] = v / M;
 				}
 			}
 		}
@@ -260,7 +172,7 @@ public:
 	void save(std::string const & _name) const { this->save(_name.c_str()); }
 	void save(char * const _name) const { CImg<float> t(N, N, 1, M); insertInto(t, 0, 0); t.save(_name); }
 
-	// TODO: refactor following for inter-type compatibility
+	// TODO: refactor below code for inter-type compatibility
 
 	ImagePatch<N, M> blendedWith(ImagePatch<N, M> const & _q, ImagePatch<N, M> const & _m) const
 	{
@@ -276,7 +188,6 @@ public:
 	ImagePatch<N, M> & maskWith(ImagePatch<N, M> _m) { m_vec.maskWith(_m.m_vec); return *this; }
 
 	static float sqrdError(ImagePatch<N, M> const & _a, ImagePatch<N, M> const & _b) { return diff(_a, _b).m_v.magnitudeSqrd(); }
-
 	static float maskedSqrdError(ImagePatch<N, M> const & _a, ImagePatch<N, M> const & _b, ImagePatch<N, M> const & _m) { return diff(_a, _b).maskWith(_m).m_vec.magnitudeSqrd(); }
 
 	static ImagePatch<N, M> diff(ImagePatch<N, M> const & a, ImagePatch<N, M> const & b) { return ImagePatch<N, M>(a.m_vec - b.m_vec); }
@@ -306,7 +217,5 @@ bool test()
 */
 
 };
-
-typedef VecN<uint, 2> Coord;
 
 } // end namespace TexSynth

@@ -20,46 +20,17 @@
 #pragma once
 
 #include <vector>
-#include "patch.h"
+#include <limits>
 
 #include "CImg.h"
 using cimg_library::CImg;
 
+#include "table.h"
+#include "patch.h"
+
+
 namespace TexSynth
 {
-
-//! Another matrix class
-template<typename T>
-class Table
-{
-private:
-	// ordering is row wise (0,0) (1,0) (2,0) (3,0) ...
-	uint kCoord(uint _i, uint _j) const { return (_j * m_width) + _i; } //!< convert (i, j) coord to linear index
-	//uint iCoord(uint _k) const { return ( _k / m_width ) % m_height; } //!< convert linear index to horizontal patch coord
-	//uint jCoord(uint _k) const { return ( _k / m_width ) / m_height; } //!< convert linear index to vertical patch coord
-
-	uint m_width;
-	uint m_height;
-	std::vector<T> m_vec;
-
-	void init(T const & _v) { m_vec.resize(m_width * m_height, _v); }
-
-public:
-	Table(uint _width, uint _height) : m_width(_width), m_height(_height) { init(T()); }
-	Table(uint _width, uint _height, T const & _v) : m_width(_width), m_height(_height) { init(_v); }
-
-	// TODO: use size_t everywhere else too
-	size_t size() const { return m_width * m_height; }
-	size_t width() const { return m_width; }
-	size_t height() const { return m_height; }
-
-	T & operator[](uint _k) { return m_vec[_k]; }
-	T operator[](uint _k) const { return m_vec[_k]; }
-
-	T & operator()(uint _i, uint _j) { return m_vec[kCoord(_i, _j)]; }
-	T operator()(uint _i, uint _j) const { return m_vec[kCoord(_i, _j)]; }
-};
-
 
 namespace Seams
 {
@@ -69,67 +40,69 @@ enum Direction { Downwards = 1, Rightwards, Upwards, Leftwards };
 template<Direction D>
 struct Coord : public TexSynth::Coord
 {
+	typedef TexSynth::Coord::Type Type;
+
 	Coord() : TexSynth::Coord(0, 0) {}
-	Coord(uint _x, uint _y) : TexSynth::Coord(_x, _y) {}
+	Coord(Type _x, Type _y) : TexSynth::Coord(_x, _y) {}
 
 	Coord & advNeg() { --orthComp(); return *this; }
 	Coord & advPos() { ++orthComp(); return *this; }
 	Coord & advPrev() { dirComp() -= dirStep(); return *this; }
 	Coord & advNext() { dirComp() += dirStep(); return *this; }
 
-	Coord & newOrth(uint _i) { orthComp() = _i; return *this; }
-	Coord & newDir(uint _i) { dirComp() = _i; return *this; }
+	Coord & setOrth(Type _i) { orthComp() = _i; return *this; }
+	Coord & setDir(Type _i) { dirComp() = _i; return *this; }
 
-	uint & dirComp();
-	uint & orthComp();
+	Type & dirComp();
+	Type & orthComp();
 
 	int dirStep() const;
 };
 
 // Specializations
-template<> uint & Coord<Downwards>::orthComp() { return x();  }
-template<> uint & Coord<Downwards>::dirComp() { return y(); }
+template<> TexSynth::Coord::Type & Coord<Downwards>::orthComp() { return x();  }
+template<> TexSynth::Coord::Type & Coord<Downwards>::dirComp() { return y(); }
 template<> int Coord<Downwards>::dirStep() const { return +1; }
 
-template<> uint & Coord<Upwards>::orthComp() { return x();  }
-template<> uint & Coord<Upwards>::dirComp() { return y(); }
+template<> TexSynth::Coord::Type & Coord<Upwards>::orthComp() { return x();  }
+template<> TexSynth::Coord::Type & Coord<Upwards>::dirComp() { return y(); }
 template<> int Coord<Upwards>::dirStep() const { return -1; }
 
-template<> uint & Coord<Rightwards>::orthComp() { return y(); }
-template<> uint & Coord<Rightwards>::dirComp() { return x(); }
+template<> TexSynth::Coord::Type & Coord<Rightwards>::orthComp() { return y(); }
+template<> TexSynth::Coord::Type & Coord<Rightwards>::dirComp() { return x(); }
 template<> int Coord<Rightwards>::dirStep() const { return +1; }
 
-template<> uint & Coord<Leftwards>::orthComp() { return y(); }
-template<> uint & Coord<Leftwards>::dirComp() { return x(); }
+template<> TexSynth::Coord::Type & Coord<Leftwards>::orthComp() { return y(); }
+template<> TexSynth::Coord::Type & Coord<Leftwards>::dirComp() { return x(); }
 template<> int Coord<Leftwards>::dirStep() const { return -1; }
 
 template<Direction D>
-class SeamHelper
+class Helper
 {
 public:
 	Table<double> const * scores;
 
-	explicit SeamHelper(Table<double> const * _sc) : scores(_sc) {}
+	explicit Helper(Table<double> const * _sc) : scores(_sc) {}
 
 	bool coordIsValid(Coord<D> const & c) const { return c.x() >= 0 && c.y() >= 0 && c.x() < scores->width() && c.y() < scores->height(); }
 
-	uint dirSize() const { return Coord<D>(scores->width(), scores->height()).dirComp(); }
-	uint orthSize() const { return Coord<D>(scores->width(), scores->height()).orthComp(); }
+	size_t dirSize() const { return Coord<D>(scores->width(), scores->height()).dirComp(); }
+	size_t orthSize() const { return Coord<D>(scores->width(), scores->height()).orthComp(); }
 
 	Coord<D> minCoord() const { return Coord<D>(0, 0); }
 	Coord<D> maxCoord() const { return Coord<D>(scores->width() - 1, scores->height() - 1); }
 
 	// relative to Direction
 	//   TL | TR   TL   BL   BL ^ BR   BL   TL
-	//      |F     <------R     |R     ------>F
+	//      |F     ------>F     |R     <------R
 	//   BL V BR   TR   BR   TL | TR   BR   TR
 	// T at start; B at end in 'dir' Direction
 	// L at zero; R at max in 'orth' Direction
 	// F = Forward; R = Reverse
-	Coord<D> topLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newOrth(0).newDir(0) : c.newOrth(0); }
-	Coord<D> topRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newDir(0)            : c;            }
-	Coord<D> bottomLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.newOrth(0) : c.newOrth(0).newDir(0); }
-	Coord<D> bottomRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c            : c.newOrth(0);           }
+	Coord<D> topLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.setOrth(0).setDir(0) : c.setOrth(0); }
+	Coord<D> topRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.setDir(0)            : c;            }
+	Coord<D> bottomLeftCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c.setOrth(0) : c.setOrth(0).setDir(0); }
+	Coord<D> bottomRightCoord() const { Coord<D> c(maxCoord()); return c.dirStep() > 0 ? c            : c.setOrth(0);           }
 
 	double lookup(Coord<D> const & c) const { return (*scores)(c.x(), c.y()); }
 
@@ -159,11 +132,11 @@ struct Seam
 	std::vector<uint>::iterator begin() { return indices.begin(); }
 	std::vector<uint>::iterator end() { return indices.end(); }
 
-	// TODO: make all this use Patches instead
-	template<typename U>
-	void modifyPatch(CImg<U> & _patch) const
+	// TODO: make all this use ImagePatches instead
+	template<uint N>
+	void modifyPatch(CImg<float> & _patch) const
 	{
-		CImg<U> ones(_patch.width(), _patch.height(), 1, _patch.spectrum(), 255);
+		CImg<float> ones(_patch.width(), _patch.height(), 1, _patch.spectrum(), 255);
 		this->modifyPatch(_patch, ones);
 	}
 
@@ -172,11 +145,9 @@ struct Seam
 	void modifyPatch(CImg<float> & _patch, CImg<float> const & _mask) const
 	{
 		Table<double> ref(_patch.width(), _patch.height());
-		Seams::SeamHelper<D> helper(&ref);
+		Seams::Helper<D> helper(&ref);
 
 		if ( helper.dirSize() != indices.size() ) printf("DIMENSION MISMATCH: SILENT FAIL!\n");
-
-		if ( helper.dirSize() != indices.size() ) return; // TODO: WARNING: silent fail on dimension mismatch
 
 		for ( Seams::Coord<D> base = helper.topLeftCoord(); helper.coordIsValid(base); base.advNext() )
 			for ( Seams::Coord<D> c(base); c.orthComp() < helper.orthSize(); c.advPos() )
@@ -205,16 +176,16 @@ struct Seam
 
 //! Returns index of pixel on seam from either left edge (for Up and Down) or top edge (for Left or Right).
 template<Seams::Direction D>
-Seam<D> findMinSeam(CImg<float> const & _img)
+Seam<D> findMinSeam(Table<float> const & _costs)
 {
-	Table<double> costs(_img.width(), _img.height(), 0.f);
-	Table<uint> refs(_img.width(), _img.height(), 0);
+	Table<double> cumulative(_costs.width(), _costs.height(), 0.f);
+	Table<uint> refs(_costs.width(), _costs.height(), 0);
 
-	Seams::SeamHelper<D> helper(&costs);
+	Seams::Helper<D> helper(&cumulative);
 
 	// first line
 	for ( Seams::Coord<D> c = helper.topLeftCoord(); helper.coordIsValid(c); c.advPos() )
-		costs(c.x(), c.y()) = _img(c.x(), c.y());
+		cumulative(c.x(), c.y()) = _costs(c.x(), c.y());
 
 	// rest
 	Seams::Coord<D> base = helper.topLeftCoord();
@@ -224,20 +195,20 @@ Seam<D> findMinSeam(CImg<float> const & _img)
 
 		// first pixel
 		Seams::Coord<D> m = helper.bestPrevPos(c);
-		costs(c.x(), c.y()) = _img(c.x(), c.y()) + costs(m.x(), m.y());
+		cumulative(c.x(), c.y()) = _costs(c.x(), c.y()) + cumulative(m.x(), m.y());
 		refs(c.x(), c.y()) = m.orthComp() - c.orthComp();
 
 		// middle pixels
 		for ( c.advPos(); c.orthComp() < helper.orthSize() - 1; c.advPos() )
 		{
 			m = helper.bestPrevBoth(c);
-			costs(c.x(), c.y()) = _img(c.x(), c.y()) + costs(m.x(), m.y());
+			cumulative(c.x(), c.y()) = _costs(c.x(), c.y()) + cumulative(m.x(), m.y());
 			refs(c.x(), c.y()) = m.orthComp() - c.orthComp();
 		}
 
 		// last pixel
 		m = helper.bestPrevNeg(c);
-		costs(c.x(), c.y()) = _img(c.x(), c.y()) + costs(m.x(), m.y());
+		cumulative(c.x(), c.y()) = _costs(c.x(), c.y()) + cumulative(m.x(), m.y());
 		refs(c.x(), c.y()) = m.orthComp() - c.orthComp();
 	}
 
@@ -246,7 +217,7 @@ Seam<D> findMinSeam(CImg<float> const & _img)
 	Seams::Coord<D> ptr = helper.bottomLeftCoord();
 	seamCoords[ptr.dirComp()] = ptr;
 	for ( ; helper.coordIsValid(ptr); ptr.advPos() )
-		if ( costs(ptr.x(), ptr.y()) < costs(seamCoords[ptr.dirComp()].x(), seamCoords[ptr.dirComp()].y()) ) seamCoords[ptr.dirComp()] = ptr;
+		if ( cumulative(ptr.x(), ptr.y()) < cumulative(seamCoords[ptr.dirComp()].x(), seamCoords[ptr.dirComp()].y()) ) seamCoords[ptr.dirComp()] = ptr;
 
 	ptr = seamCoords[ptr.dirComp()];
 	Seams::Coord<D> pxy = ptr;
@@ -265,12 +236,12 @@ Seam<D> findMinSeam(CImg<float> const & _img)
 
 #if ( 0 )
 	// DEBUG
-	for ( int j = 0; j < _img.height(); ++j )
+	for ( int j = 0; j < _costs.height(); ++j )
 	{
 		printf("%i: ", j);
 
-		for ( int i = 0; i < _img.width(); ++i )
-			printf("%6.1f  ", _img(i, j));
+		for ( int i = 0; i < _costs.width(); ++i )
+			printf("%6.1f  ", _costs(i, j));
 
 		printf("\n");
 	}
@@ -281,7 +252,7 @@ Seam<D> findMinSeam(CImg<float> const & _img)
 		printf("%u: ", seam[p.dirComp()]);
 
 		for ( ; helper.coordIsValid(p); p.advPos() )
-			printf("%6.1f%s ", _img(p.x(), p.y()), p.orthComp() == seam[p.dirComp()] ? "*" : " ");
+			printf("%6.1f%s ", _costs(p.x(), p.y()), p.orthComp() == seam[p.dirComp()] ? "*" : " ");
 
 		printf("\n");
 	}
@@ -295,10 +266,8 @@ Seam<D> findMinSeam(CImg<float> const & _img)
 	// DEBUG END
 #endif
 
-
 	return seam;
 }
-
 
 
 } // namespace TexSynth

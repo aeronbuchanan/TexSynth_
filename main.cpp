@@ -26,16 +26,18 @@
 #include "CImg.h"
 using cimg_library::CImg;
 
+#include "common.h"
 #include "patch.h"
 #include "texSynth.h"
-#include "seam.h"
+#include "circularSeam.h"
+
 using namespace TexSynth;
 
 int main(int argc, char * * argv)
 {
 	srand(0);
 
-	for ( uint i = 0; i < argc; ++i )
+	for ( int i = 0; i < argc; ++i )
 		printf("%u/%i: '%s'\n", i + 1, argc, argv[i] );
 
 	CImg<uchar> testUC("leaf.png"); printf("DEBUG: leaf<uchar>(0,0) = <%i, %i, %i>\n", testUC(0,0,0,0), testUC(0,0,0,1), testUC(0,0,0,2));
@@ -47,8 +49,14 @@ int main(int argc, char * * argv)
 
 	CImg<uchar> image(inputFilename.c_str());
 
-	static uint const N = 30;
+	static uint const N = 5;
 	typedef TexSynther<N>::Patch Patch;
+
+	Table<float> tab(N, N, 0.f);
+	tab(0, 0) = 256.f;
+	tab(1, 1) = 255.f;
+	tab(0, 1) = 255.f;
+	findMinCircSeam(tab, tab);
 
 #if 0
 
@@ -142,7 +150,7 @@ int main(int argc, char * * argv)
 
 	img.save("seam_test.png");
 
-#elif 1
+#elif 0
 
 	int newWidth = 60; // N * (image.width() / N) * 3;
 	int newHeight = 60; // N * (image.height() / N) * 3;
@@ -171,7 +179,7 @@ int main(int argc, char * * argv)
 
 	imgOut.save(outputFilename.c_str());
 
-#else
+#elif 0
 
 	CImg<float> imgOut(image.width(), image.height(), 1, 3, 0);
 	std::vector<CImg<float> > imagePyramid;
@@ -228,7 +236,7 @@ int main(int argc, char * * argv)
 	if ( 0 )
 	{
 		cimg_library::CImgDisplay display0(image, "Original");
-		cimg_library::CImgDisplay display1(imgOut, "Reconstructed");
+		//cimg_library::CImgDisplay display1(imgOut, "Reconstructed");
 
 		while ( !display0.is_closed() )
 		{

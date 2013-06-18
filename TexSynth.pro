@@ -14,5 +14,9 @@ HEADERS += \
     texSynth.h \
 	texSynth.hpp \
     patch.h \
-    seam.h
+    seam.h \
+    vecn.h \
+    common.h \
+    table.h \
+    circularSeam.h
 

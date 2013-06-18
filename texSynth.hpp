@@ -94,7 +94,7 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 	uint iii = 0;
 	char name[100];
 
-	for ( uint y = 0; y < _img.height(); y += shift )
+	for ( int y = 0; y < _img.height(); y += shift )
 	{
 		uint yy = y;
 		if ( yy >= _img.height() - m_patchWidth )
@@ -103,7 +103,7 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 			y = _img.height();
 		}
 
-		for ( uint x = 0; x < _img.width(); x += shift )
+		for ( int x = 0; x < _img.width(); x += shift )
 		{
 			uint xx = x;
 			if ( xx >= _img.width() - m_patchWidth )
@@ -124,8 +124,6 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 			Patch mask(_msk, xx, yy);
 			Patch diffs = Patch::diffSqrd(p, image);
 			for ( uint i = 0; i < diffs.size(); ++i ) diffs[i] = mask[i] < 255.f - epsilon ? std::numeric_limits<float>::max() : diffs[i];
-			CImg<float> diffsCImg(N, N, 1, 3);
-			diffs.insertInto(diffsCImg, 0, 0);
 
 			// TODO: do all four directions
 			CImg<float> maskCImg(N, N, 1, 3);
@@ -133,12 +131,12 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 			CImg<float> blendCImg(N, N, 1, 3, 255);
 			if ( xx > 0 )
 			{
-				auto vSeam = findMinSeam<Seams::Downwards>(diffsCImg);
+				auto vSeam = findMinSeam<Seams::Downwards>(diffs.asTable());
 				vSeam.modifyPatch(blendCImg, maskCImg);
 			}
 			if ( yy > 0 )
 			{
-				auto hSeam = findMinSeam<Seams::Leftwards>(diffsCImg);
+				auto hSeam = findMinSeam<Seams::Leftwards>(diffs.asTable());
 				hSeam.modifyPatch(blendCImg, maskCImg);
 			}
 
