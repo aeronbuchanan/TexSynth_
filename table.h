@@ -20,6 +20,7 @@
 #pragma once
 
 #include <iostream>
+#include <iomanip>
 #include "vecn.h"
 
 namespace TexSynth
@@ -68,13 +69,15 @@ public:
 
 	void printn() const
 	{
+		//std::cout.precision(2);
 		printf("Table<%s>: %lux%lu\n", identifyType(T()).c_str(), m_width, m_height);
 		for ( uint j = 0; j < m_height; ++j )
 		{
 			for ( uint i = 0; i < m_width - 1; ++i )
-				std::cout << (*this)(i, j) << ", ";
-			std::cout << (*this)(m_width - 1, j) << std::endl;
+				std::cout << std::setw(10) << (*this)(i, j) << ", ";
+			std::cout << std::setw(10) << (*this)(m_width - 1, j) << std::endl;
 		}
+		//std::cout.unsetf( std::ios::floatfield );
 	}
 };
 

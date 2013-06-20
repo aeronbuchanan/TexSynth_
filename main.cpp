@@ -52,17 +52,6 @@ int main(int argc, char * * argv)
 	static uint const N = 5;
 	typedef TexSynther<N>::Patch Patch;
 
-	Table<float> tab(N, N, 0.f);
-	tab(0, 0) = 556.f;
-	tab(1, 0) = 355.f;
-	tab(1, 1) = 255.f;
-	tab(2, 0) = 325.f;
-	tab(2, 1) = 299.f;
-	tab(3, 0) = 304.f;
-	tab(0, 2) = 300.f;
-	tab(0, 1) = 999.f;
-	CircSeams::findMin(tab, tab);
-
 #if 0
 
 	Patch pp(image, 0, 0);
@@ -155,7 +144,7 @@ int main(int argc, char * * argv)
 
 	img.save("seam_test.png");
 
-#elif 0
+#elif 1
 
 	int newWidth = 60; // N * (image.width() / N) * 3;
 	int newHeight = 60; // N * (image.height() / N) * 3;
