@@ -43,7 +43,6 @@ private:
 	void init(T const & _v) { m_vec.resize(m_width * m_height, _v); }
 	void init(uint _width, uint _height) { m_width = _width; m_height = _height; init(T()); }
 
-
 public:
 	Table(uint _width, uint _height) : m_width(_width), m_height(_height) { init(T()); }
 	Table(uint _width, uint _height, T const & _v) : m_width(_width), m_height(_height) { init(_v); }
@@ -67,7 +66,9 @@ public:
 	T & operator()(uint _i, uint _j) { return m_vec[kCoord(_i, _j)]; }
 	T operator()(uint _i, uint _j) const { return m_vec[kCoord(_i, _j)]; }
 
-	void printn() const
+	Table<T> operator*(float _v) const { Table<T> t(*this); for ( uint i = 0; i < t.size(); ++i ) t[i] *= _v; return t; }
+
+	void display() const
 	{
 		//std::cout.precision(2);
 		printf("Table<%s>: %lux%lu\n", identifyType(T()).c_str(), m_width, m_height);

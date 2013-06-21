@@ -26,7 +26,6 @@
 #include "CImg.h"
 
 #include "patch.h"
-#include "seam.h"
 
 namespace TexSynth
 {

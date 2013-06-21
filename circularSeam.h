@@ -37,7 +37,7 @@ namespace TexSynth
 namespace CircSeams
 {
 
-enum Direction { Downwards = 1, Rightwards, Upwards, Leftwards };
+enum Direction { NONE = 0, Downwards, Rightwards, Upwards, Leftwards };
 std::ostream & operator<<(std::ostream & _stream, Direction _dir)
 {
 	switch ( _dir )
@@ -66,6 +66,7 @@ bool isReverse(Direction d) { return !isForward(d); }
 
 struct DirCoord : public Coord
 {
+	DirCoord() : Coord(0, 0), direction(NONE) {}
 	explicit DirCoord(Direction _d) : Coord(0, 0), direction(_d) {}
 	DirCoord(Coord::Type _x, Coord::Type _y, Direction _d) : Coord(_x, _y), direction(_d) {}
 
@@ -122,7 +123,11 @@ struct CircSeam
 	DirCoord & operator[](uint i) { return m_coords[i]; }
 	DirCoord operator[](uint i) const { return m_coords[i]; }
 
+	// TODO: incorporate corner-cutting into push_back
+	// add member variable m_cost
+	// add a while ( L1::dist(_c, m_coords(m_coords.size() - 2)) == 1 ) { <remove corner> }
 	void push_back(DirCoord const & _c) { m_coords.push_back(_c); }
+	void pop_back() { m_coords.pop_back(); }
 
 	std::vector<DirCoord>::iterator begin() { return m_coords.begin(); }
 	std::vector<DirCoord>::iterator end() { return m_coords.end(); }
@@ -158,7 +163,7 @@ struct CircSeam
 
 					auto ptr = m_coords.begin() + k;
 
-					std::cout << "REMOVING " << k << ":" << *ptr << std::endl;
+					//std::cout << "REMOVING " << k << ":" << *ptr << std::endl;
 
 					_totalCost -= _costs((*ptr).x(), (*ptr).y());
 					m_coords.erase(ptr);
@@ -218,14 +223,42 @@ public:
 		return distFromStart(_c) < dirSize(_c.direction) - distFromOutside(_c) && distFromStart(_c) > distFromOutside(_c) && coordIsValid(_c);
 	}
 
-	DirCoord prevIn(DirCoord const & c) const { return DirCoord(c).advBack().advIn(); }
-	DirCoord prevOut(DirCoord const & c) const { return DirCoord(c).advBack().advOut(); }
-	DirCoord prevStr(DirCoord const & c) const { return DirCoord(c).advBack(); }
+	Direction directionOfQuadrantContaining(DirCoord const _c) const
+	{
+		Direction d = NONE;
+		DirCoord c(_c);
+		for ( Direction t : {Downwards, Upwards, Leftwards, Rightwards} )
+		{
+			c.direction = t;
+			if ( isWithinItsQuadrant(c) )
+			{
+				d = t;
+				break;
+			}
+		}
+		return d;
+	}
+
+	DirCoord withQuadrantDirection(DirCoord const & _c) const { DirCoord c(_c); c.direction = directionOfQuadrantContaining(c); return c; }
+
+	DirCoord prevIn(DirCoord const & _c) const { return withQuadrantDirection(DirCoord(_c).advBack().advIn()); }
+	DirCoord prevOut(DirCoord const & _c) const { return withQuadrantDirection(DirCoord(_c).advBack().advOut()); }
+	DirCoord prevStr(DirCoord const & _c) const { return withQuadrantDirection(DirCoord(_c).advBack()); }
 
 	DirCoord bestPrevInStr(DirCoord const & c) const { return lookup(prevIn(c)) < lookup(prevStr(c)) ? prevIn(c) : prevStr(c); }
 	DirCoord bestPrevOutStr(DirCoord const & c) const { return lookup(prevOut(c)) < lookup(prevStr(c)) ? prevOut(c) : prevStr(c); }
 
 	DirCoord bestPrevBoth(DirCoord const & c) { return lookup(prevOut(c)) < lookup(bestPrevInStr(c)) ? prevOut(c) : bestPrevInStr(c); }
+
+	DirCoord bestPrev(DirCoord const & _c)
+	{
+		DirCoord b;
+		b = distFromOutside(_c) > 0 ? bestPrevBoth(_c) : bestPrevInStr(_c);
+		// Must not go into central pixels
+		if ( !directionOfQuadrantContaining(b) )
+			b = distFromOutside(_c) > 0 ? bestPrevOutStr(_c) : prevStr(_c);
+		return b;
+	}
 
 	DirCoord bestInDirectionOf(DirCoord const & src, DirCoord const & tgt, DirCoord const & avoid)
 	{
@@ -294,9 +327,9 @@ public:
 		T d2 = equal::coords(s2, avoid) ? std::numeric_limits<T>::max() : lookup(s2);
 		T d3 = equal::coords(s3, avoid) ? std::numeric_limits<T>::max() : lookup(s3);
 
-		std::cout << "1. " << s1 << ":" << d1 << std::endl;
-		std::cout << "2. " << s2 << ":" << d2 << std::endl;
-		std::cout << "3. " << s3 << ":" << d3 << std::endl;
+		//std::cout << "1. " << s1 << ":" << d1 << std::endl;
+		//std::cout << "2. " << s2 << ":" << d2 << std::endl;
+		//std::cout << "3. " << s3 << ":" << d3 << std::endl;
 
 		DirCoord best = src;
 
@@ -308,14 +341,18 @@ public:
 
 	void display(CircSeam const & cs)
 	{
+		float total = 0;
+		for ( auto c : cs )
+			total += ( (*m_scores)(c.x(), c.y()) );
+		printf("CircSeam: length = %u; cost = %f;\n", cs.size(), total);
 		for ( uint j = 0; j < m_scores->height(); ++j )
 		{
 			for ( uint i = 0; i < m_scores->width(); ++i )
 			{
 				bool found = false;
-				for ( auto itr : cs )
-					found |= ( itr.x() == i && itr.y() == j );
-				printf("%10.0f%s ", (*m_scores)(i,j), found ? "*" : " ");
+				for ( auto c : cs )
+					found |= ( c.x() == i && c.y() == j );
+				printf("%8.0f%s ", (*m_scores)(i,j), found ? "*" : " ");
 			}
 			printf("\n");
 		}
@@ -328,8 +365,10 @@ private:
 //! Minimum cost seam all the way around, not using any entries where _mask < 255.f
 Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 {
-	// Note: this is an approximation
-	// The loop closure uses heuristics to get an answer rather than anything that can garrantee optimality
+	// Note: this is an approximation - the loop closure uses heuristics to get an answer rather than anything that can guarantee optimality
+	// Note: current version necessarily includes the center pixel(s) in the output mask
+
+	// TODO: use /mincut/ instead
 
 	// increase size of the working table by 1 in every direction
 	// to allow for prohibited areas going to the edge
@@ -345,10 +384,6 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 		for ( uint i = 0; i < _costs.width(); ++i )
 			costs(i + 1, j + 1) = _mask(i, j) < 255.f - epsilon ? std::numeric_limits<float>::infinity() : _costs(i, j);
 
-	std::cout << "\n---\n";
-	costs.printn();
-	std::cout << "---" << std::endl;
-
 	Helper<double> helper(&cumulative);
 
 	// order of quadrants
@@ -360,6 +395,7 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 
 	double bestCost = 0;
 	CircSeam bestSeam;
+	int bestExtended = 0; // number of additional coords to join up ends
 
 	// dynamic programming
 	for ( Direction d : dirs )
@@ -372,19 +408,16 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 
 			for ( DirCoord curr = base; helper.isWithinItsQuadrant(curr); curr.advIn() )
 			{
-				DirCoord b(d);
-				// TODO: tidy up
-				b = helper.distFromOutside(curr) > 0 ? helper.bestPrevBoth(curr) : helper.bestPrevInStr(curr);
-				// Must not go into central pixels
-				if ( !helper.isWithinItsQuadrant(b) )
-					b = helper.distFromOutside(curr) > 0 ? helper.bestPrevOutStr(curr) : helper.prevStr(curr);
+				DirCoord b = helper.bestPrev(curr);
 				cumulative(curr.x(), curr.y()) = costs(curr.x(), curr.y()) + cumulative(b.x(), b.y());
 				refs(curr.x(), curr.y()) = b;
 			}
 		}
 	}
 
-	// backtracking
+	// **** Backtracking *****
+
+	// create a list the end points in order of total seam cost
 	typedef std::pair<double, DirCoord> DDC;
 	struct compDDC { bool operator()(DDC const & a, DDC const & b) { return a.first > b.first; } };
 	std::vector<DDC> heap;
@@ -403,19 +436,22 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 
 	Helper<float> costsHelper(&costs); // DEBUG
 
-	// heap in reverse order
+	// go through seams (by end point) in order of cost (lowest first)
+	// Note: heap in reverse order
 	for ( auto seamEndPtr = heap.rbegin(); seamEndPtr != heap.rend(); ++seamEndPtr )
 	{
-		printf("---\n");
+		//std::cout << "--" << std::endl;
 
 		CircSeam thisSeam;
 		bool leftLastQuadrant = false;
 		double thisCost = (*seamEndPtr).first;
+
+		// actual backtracking
 		DirCoord curr = (*seamEndPtr).second;
 		DirCoord test(curr.x(), curr.y(), dirs.back());
 		while ( leftLastQuadrant != helper.isWithinItsQuadrant(test) )
 		{
-			//std::cout << "Adding " << curr << std::endl;
+			//std::cout << "Adding " << curr << " [" << (helper.isWithinItsQuadrant(curr) ? "OK" : "DANGER") << "] " << std::endl;
 
 			thisSeam.push_back(curr);
 			curr = refs(curr.x(), curr.y());
@@ -438,17 +474,19 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 				// done
 				bestCost = thisCost;
 				bestSeam = thisSeam;
+				bestExtended = 0;
 			}
 			else
 			{
 				//printf("This needs work...\n");
+				int thisExtended = 0;
 
 				// try connecting from back (greedy approach)
 				while ( L1::dist(thisSeam.front(), thisSeam.back()) > 1 )
 				{
 					DirCoord s = thisSeam.front();
 					DirCoord e = thisSeam.back();
-					DirCoord avoid = thisSeam[thisSeam.size() - 2];
+					DirCoord avoid = thisSeam[thisSeam.size() - 2]; // seam must be bigger than 1
 
 					//std::cout << "Advancing " << e << " towards " << s << " avoiding " << avoid << std::endl;
 
@@ -457,10 +495,17 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 					//std::cout << " ==> " << u << std::endl;
 
 					if ( L1::dist(u, e) == 0 ) // not going anywhere
-						break;
+						continue; // not joined up so on to the next seam
+
+					if ( L1::dist(u, avoid) == 1 ) // corner to be cut
+					{
+						thisSeam.pop_back();
+						thisCost -= costs(e.x(), e.y());
+					}
 
 					thisSeam.push_back( u );
 					thisCost += costs(u.x(), u.y());
+					thisExtended++;
 
 					//std::cout << "end gap dist = " << L1::dist(thisSeam.front(), thisSeam.back()) << " & cost = " << thisCost << std::endl;
 				}
@@ -471,6 +516,7 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 				{
 					bestCost = thisCost;
 					bestSeam = thisSeam;
+					bestExtended = thisExtended;
 				}
 
 				// try other things?
@@ -480,66 +526,91 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 
 	}
 
+
+	std::cout << "=== bestSeam ===" << std::endl;
+	costsHelper.display(bestSeam);
+	std::cout << "=== (extension = " << bestExtended << ") ===" << std::endl;
+
 	// create mask
 	Table<float> output(_costs.width(), _costs.height(), 1.f);
-	//Helper<float> maskHelper(&output);
 
 	struct l
 	{
-		float dummy; // TODO!
+		float dummy; // TODO! tidy up this laziness
 		Table<float> * ref;
-		float & operator()(DirCoord const & c) { return check(c) ? (*ref)(c.x() - 1, c.y() - 1) : dummy; }
+
+		float & operator()(DirCoord const & c)
+		{
+			//std::cout<<c<<": "<<(check(c)?"set":"ignored")<<std::endl;
+			return check(c) ? (*ref)(c.x() - 1, c.y() - 1) : dummy;
+		}
+
 		bool check(DirCoord const & c) { return c.x() > 0 && c.y() > 0 && c.x() <= ref->width() && c.y() <= ref->height(); }
+
+		void fillToCorner(DirCoord const & curr, DirCoord const & comp, Helper<float> const & helper)
+		{
+			// fill to corner
+			//std::cout<<"fill "<<(curr.moreForwardThan(comp)?"forward":"back")<<" from "<<curr<<std::endl;
+			DirCoord c = curr;
+			c.setToOuter(helper.maxOrth(c.direction));
+			if ( curr.moreForwardThan(comp) )
+				for ( c.advForward(); helper.isWithinItsQuadrant(c); c.advForward() )
+					for ( DirCoord cc = c; helper.isWithinItsQuadrant(cc); cc.advIn() )
+						(*this)(cc) = 0;
+			else
+				for ( c.advBack(); helper.isWithinItsQuadrant(c); c.advBack() )
+					for ( DirCoord cc = c; helper.isWithinItsQuadrant(cc); cc.advIn() )
+						(*this)(cc) = 0;
+		}
+
 	} output_;
 	output_.ref = &output;
 
-	// TODO: zero corners not ref'd by Coords in seam
+	bool specialExtension = false;
+
 	for ( int i = 0; i < bestSeam.size(); ++i )
 	{
 		int j = i > 0 ? i - 1 : bestSeam.size() - 1;
-		if ( bestSeam[i].direction != bestSeam[j].direction )
-		{
-			// fill back
-			DirCoord c = bestSeam[i];
-			c.setToOuter(costsHelper.maxOrth(c.direction));
-			if ( bestSeam[i].moreForwardThan(bestSeam[j]) )
-				for ( c.advBack(); costsHelper.isWithinItsQuadrant(c); c.advBack() )
-					for ( DirCoord cc = c; costsHelper.isWithinItsQuadrant(cc); cc.advIn() )
-						output_(cc) = 0;
-			else
-				for ( c.advForward(); costsHelper.isWithinItsQuadrant(c); c.advForward() )
-					for ( DirCoord cc = c; costsHelper.isWithinItsQuadrant(cc); cc.advIn() )
-						output_(cc) = 0;
-		}
 		int k = i < bestSeam.size() - 1 ? i + 1 : 0;
-		if ( bestSeam[i].direction != bestSeam[k].direction )
+
+		// look out for when most forward/backward DirCoord is not at a direction transistion
+		if ( bestExtended && i == bestSeam.size() - 1 - bestExtended )
 		{
-			// fill forward
-			DirCoord c = bestSeam[i];
-			c.setToOuter(costsHelper.maxOrth(c.direction));
-			if ( bestSeam[i].moreForwardThan(bestSeam[k]) )
-				for ( c.advBack(); costsHelper.isWithinItsQuadrant(c); c.advBack() )
-					for ( DirCoord cc = c; costsHelper.isWithinItsQuadrant(cc); cc.advIn() )
-						output_(cc) = 0;
-			else
-				for ( c.advForward(); costsHelper.isWithinItsQuadrant(c); c.advForward() )
-					for ( DirCoord cc = c; costsHelper.isWithinItsQuadrant(cc); cc.advIn() )
-						output_(cc) = 0;
+			if ( bestSeam[j].moreForwardThan(bestSeam[i]) != bestSeam[i].moreForwardThan(bestSeam[k]) )
+			{
+				//std::cout<<"...................special ";
+				// fill to corner
+				output_.fillToCorner(bestSeam[i], bestSeam[j], costsHelper);
+				specialExtension = true;
+			}
 		}
+
+		if ( !specialExtension )
+		{
+			//std::cout<<"...................";
+			if ( bestSeam[i].direction != bestSeam[j].direction )
+				output_.fillToCorner(bestSeam[i], bestSeam[k], costsHelper);
+			if ( bestSeam[i].direction != bestSeam[k].direction )
+				output_.fillToCorner(bestSeam[i], bestSeam[j], costsHelper);
+		}
+
+		//std::cout<<".....................continue"<<std::endl;
 
 		DirCoord c = bestSeam[i];
 		if ( output_.check(c) )
 		{
 			output_(c) = 0.5f;
-			for ( c.advOut(); output_.check(c); c.advOut() )
-				output_(c) = 0.f;
+			if ( !specialExtension ) // fill out to edge
+				for ( c.advOut(); output_.check(c); c.advOut() )
+					output_(c) = 0.f;
 		}
 	}
 
-	printf(">>>\n");
-	output.printn();
+	output.display();
 
-	return output;
+	// TODO! check that all <float>::inf pixels are 1.f in mask
+
+	return output * 255.f;
 }
 
 } // end namespace CircSeams

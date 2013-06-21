@@ -22,6 +22,8 @@
 #include <limits>
 #include <algorithm>
 
+#include "circularSeam.h"
+
 template<uint N>
 uint TexSynth::TexSynther<N>::selectPatchFor(cimg_library::CImg<float> & _I, cimg_library::CImg<float> & _M, uint _x, uint _y) const
 {
@@ -117,41 +119,26 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 			// DEBUG
 			p.insertInto(debug, xx, yy);
 
-			float epsilon = 0.1;
-
 			// TODO: put the following somewhere more general
 			Patch image(_img, xx, yy);
 			Patch mask(_msk, xx, yy);
 			Patch diffs = Patch::diffSqrd(p, image);
-			for ( uint i = 0; i < diffs.size(); ++i ) diffs[i] = mask[i] < 255.f - epsilon ? std::numeric_limits<float>::max() : diffs[i];
 
-			// TODO: do all four directions
-			CImg<float> maskCImg(N, N, 1, 3);
-			mask.insertInto(maskCImg,0 ,0);
-			CImg<float> blendCImg(N, N, 1, 3, 255);
-			if ( xx > 0 )
-			{
-				auto vSeam = findMinSeam<Seams::Downwards>(diffs.asTable());
-				vSeam.modifyPatch(blendCImg, maskCImg);
-			}
-			if ( yy > 0 )
-			{
-				auto hSeam = findMinSeam<Seams::Leftwards>(diffs.asTable());
-				hSeam.modifyPatch(blendCImg, maskCImg);
-			}
+			Table<float> tMask = CircSeams::findMin( diffs.asTable(), mask.channelAsTable(0) );
+
+			Patch blendMask(tMask);
 
 			sprintf(name, "debug_%s_%d.png", "selectMask", iii);
 			mask.save(name);
 			sprintf(name, "debug_%s_%d.png", "blendMask", iii);
-			blendCImg.save(name);
+			blendMask.save(name);
 			sprintf(name, "debug_%s_%d.png", "patchChosen", iii);
 			p.save(name);
 			sprintf(name, "debug_%s_%d.png", "patchExtracted", iii);
 			image.save(name);
 
 			// Merge patches
-			mask.extractFrom(blendCImg, 0, 0);
-			p = p.blendedWith(image, mask);
+			p = p.blendedWith(image, blendMask);
 			p.insertInto(_img, xx, yy);
 
 			ones.insertInto(_msk, xx, yy);
