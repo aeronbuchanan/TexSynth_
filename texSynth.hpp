@@ -128,8 +128,8 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 
 			Patch blendMask(tMask);
 
-			sprintf(name, "debug_%s_%d.png", "blendMask", iii);
-			blendMask.save(name);
+			//sprintf(name, "debug_%s_%d.png", "blendMask", iii);
+			//blendMask.save(name);
 
 			// Merge patches
 			p = p.blendedWith(image, blendMask);
