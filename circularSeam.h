@@ -684,7 +684,7 @@ Table<float> findMin(Table<float> const & _costs, Table<float> const & _mask)
 		if ( output_.check(curr) )
 		{
 			output_(curr) = 0.5f;
-			if ( curr.moreForwardThan(prev) || curr.moreBackwardThan(prev) )
+			if ( curr.direction != prev.direction || curr.moreForwardThan(prev) || curr.moreBackwardThan(prev) )
 				for ( curr.advOut(); output_.check(curr); curr.advOut() ) // fill out to edge
 					output_(curr) = 0.f;
 		}
