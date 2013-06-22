@@ -49,30 +49,16 @@ int main(int argc, char * * argv)
 
 	CImg<uchar> image(inputFilename.c_str());
 
-	static uint const N = 15;
+	static uint const N = 30;
 	typedef TexSynther<N>::Patch Patch;
 
-	/*
+/*
 	Table<float> tab(N, N);
 	uint i = 0;
 	uint j = 0;
 
-		  tab(i++,   j) =    197; tab(i++, j) = 3291; tab(i++, j) = 1328; tab(i++, j) =  362; tab(i++, j) = 1726; tab(i++, j) =  694; tab(i++, j) =  883; tab(i++, j) =   47; tab(i++, j) =   20; tab(i++, j) = 1372; tab(i++, j) =  250; tab(i++, j) =  108; tab(i++, j) =   62; tab(i++, j) = 2818; tab(i++, j) =   81;
-   i = 0; tab(i++, ++j) =   1210; tab(i++, j) =   77; tab(i++, j) =  190; tab(i++, j) =   27; tab(i++, j) =  347; tab(i++, j) =   28; tab(i++, j) =  428; tab(i++, j) =   79; tab(i++, j) =  694; tab(i++, j) = 1205; tab(i++, j) =  268; tab(i++, j) =   24; tab(i++, j) =  182; tab(i++, j) = 2038; tab(i++, j) =  373;
-   i = 0; tab(i++, ++j) =    972; tab(i++, j) =  121; tab(i++, j) =  141; tab(i++, j) =  867; tab(i++, j) =  662; tab(i++, j) =   41; tab(i++, j) =  713; tab(i++, j) =  170; tab(i++, j) =    3; tab(i++, j) =  15; tab(i++, j) =  11; tab(i++, j) =  35; tab(i++, j) = 255; tab(i++, j) = 1382; tab(i++, j) =  105;
-   i = 0; tab(i++, ++j) =    754; tab(i++, j) =  846; tab(i++, j) =  578; tab(i++, j) =   48; tab(i++, j) =    6; tab(i++, j) =    4; tab(i++, j) = 842; tab(i++, j) =  130; tab(i++, j) = 408; tab(i++, j) =   20; tab(i++, j) =   47; tab(i++, j) =   21; tab(i++, j) =  200; tab(i++, j) =  162; tab(i++, j) =  45;
-   i = 0; tab(i++, ++j) =    415; tab(i++, j) =  267; tab(i++, j) =  246; tab(i++, j) =  581; tab(i++, j) =   67; tab(i++, j) =  17; tab(i++, j) =  415; tab(i++, j) = 695; tab(i++, j) =  737; tab(i++, j) =  543; tab(i++, j) =   33; tab(i++, j) =  786; tab(i++, j) =  103; tab(i++, j) =  492; tab(i++, j) =   18;
-   i = 0; tab(i++, ++j) =    442; tab(i++, j) =  281; tab(i++, j) =   29; tab(i++, j) =   36; tab(i++, j) =  108; tab(i++, j) = 287; tab(i++, j) =  289; tab(i++, j) = 1553; tab(i++, j) = 1259; tab(i++, j) =  490; tab(i++, j) =  107; tab(i++, j) =  190; tab(i++, j) =  528; tab(i++, j) =  440; tab(i++, j) = 1409;
-   i = 0; tab(i++, ++j) =    430; tab(i++, j) =   13; tab(i++, j) =  462; tab(i++, j) =  443; tab(i++, j) =  499; tab(i++, j) =   41; tab(i++, j) = -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    362; tab(i++, j) =  217; tab(i++, j) = 1449; tab(i++, j) =  983; tab(i++, j) =  489; tab(i++, j) =  329; tab(i++, j) = -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    489; tab(i++, j) =   36; tab(i++, j) = 1321; tab(i++, j) =  144; tab(i++, j) = 1081; tab(i++, j) =  175; tab(i++, j) = -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    789; tab(i++, j) =  681; tab(i++, j) =   47; tab(i++, j) =  498; tab(i++, j) =  221; tab(i++, j) =   51; tab(i++, j) = -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    731; tab(i++, j) = 1480; tab(i++, j) =   11; tab(i++, j) =  176; tab(i++, j) =   18; tab(i++, j) = 199; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    207; tab(i++, j) =  520; tab(i++, j) =   50; tab(i++, j) =   52; tab(i++, j) = 233; tab(i++, j) =  626; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    492; tab(i++, j) =  351; tab(i++, j) =   91; tab(i++, j) =   65; tab(i++, j) = 745; tab(i++, j) = 1000; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =    350; tab(i++, j) = 1161; tab(i++, j) = 1125; tab(i++, j) =  206; tab(i++, j) =  646; tab(i++, j) = 2588; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-   i = 0; tab(i++, ++j) =     69; tab(i++, j) =  109; tab(i++, j) =  678; tab(i++, j) =  205; tab(i++, j) =  310; tab(i++, j) = 1960; tab(i++, j) = -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1; tab(i++, j) =  -1;
-
+	i = 0; tab(i++,   j) =   4; tab(i++, j) = 225; tab(i++, j) = 121; tab(i++, j) =   9; tab(i++, j) =   9; tab(i++, j) =   1; tab(i++, j) =  16; tab(i++, j) =   1; tab(i++, j) =   4; tab(i++, j) =   4; tab(i++, j) =   1; tab(i++, j) =  16; tab(i++, j) =   1; tab(i++, j) =  64; tab(i++, j) =   1; tab(i++, j) =   0; tab(i++, j) =  64; tab(i++, j) =  49; tab(i++, j) =  49; tab(i++, j) =  64; tab(i++, j) = 361; tab(i++, j) = 289; tab(i++, j) =   1; tab(i++, j) = 361; tab(i++, j) = 529; tab(i++, j) = 400; tab(i++, j) = 289; tab(i++, j) = 576; tab(i++, j) = 625; tab(i++, j) = 625;
+	i = 0; tab(i++, ++j) = 121; tab(i++, j) =  81; tab(i++, j) =  72.25; tab(i++, j) =  36; tab(i++, j) =   4; tab(i++, j) =   4; tab(i++, j) =   4; tab(i++, j) =   0; tab(i++, j) =   1; tab(i++, j) =   1; tab(i++, j) =   9; tab(i++, j) =  49; tab(i++, j) =  49; tab(i++, j) =   9; tab(i++, j) =   4; tab(i++, j) =   1; tab(i++, j) =  64; tab(i++, j) =  36; tab(i++, j) =  25; tab(i++, j) =   1; tab(i++, j) =   4; tab(i++, j) = 169; tab(i++, j) = 1024; tab(i++, j) = 841; tab(i++, j) = 676; tab(i++, j) = 361; tab(i++, j) = 196; tab(i++, j) = 256; tab(i++, j) = 144; tab(i++, j) =  25;
 
 	Table<float> mtab(tab);
 
@@ -85,7 +71,7 @@ int main(int argc, char * * argv)
 	std::cout<<"."<<std::endl;
 
 	CircSeams::findMin(tab, mtab);
-	*/
+*/
 
 
 #if 0
@@ -183,8 +169,8 @@ int main(int argc, char * * argv)
 #elif 1
 	// *****
 
-	int newWidth = 60; // N * (image.width() / N) * 3;
-	int newHeight = 60; // N * (image.height() / N) * 3;
+	int newWidth = N * (image.width() / N) * 3;
+	int newHeight = N * (image.height() / N) * 3;
 	CImg<float> imgOut(newWidth, newHeight, 1, 3, 0.f);
 
 	float alpha = 1.f;

@@ -68,15 +68,20 @@ public:
 
 	Table<T> operator*(float _v) const { Table<T> t(*this); for ( uint i = 0; i < t.size(); ++i ) t[i] *= _v; return t; }
 
-	void display() const
+	void display()
+	{
+		display(0, width() - 1, 0, height() - 1);
+	}
+
+	void display(uint si, uint ei, uint sj, uint ej)
 	{
 		//std::cout.precision(2);
 		printf("Table<%s>: %lux%lu\n", identifyType(T()).c_str(), m_width, m_height);
-		for ( uint j = 0; j < m_height; ++j )
+		for ( uint j = sj; j <= ej; ++j )
 		{
-			for ( uint i = 0; i < m_width - 1; ++i )
+			for ( uint i = si; i <= ei - 1; ++i )
 				std::cout << std::setw(10) << (*this)(i, j) << ", ";
-			std::cout << std::setw(10) << (*this)(m_width - 1, j) << std::endl;
+			std::cout << std::setw(10) << (*this)(ei, j) << std::endl;
 		}
 		//std::cout.unsetf( std::ios::floatfield );
 	}

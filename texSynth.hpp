@@ -128,14 +128,8 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 
 			Patch blendMask(tMask);
 
-			sprintf(name, "debug_%s_%d.png", "selectMask", iii);
-			mask.save(name);
-			sprintf(name, "debug_%s_%d.png", "blendMask", iii);
-			blendMask.save(name);
-			sprintf(name, "debug_%s_%d.png", "patchChosen", iii);
-			p.save(name);
-			sprintf(name, "debug_%s_%d.png", "patchExtracted", iii);
-			image.save(name);
+			//sprintf(name, "debug_%s_%d.png", "blendMask", iii);
+			//blendMask.save(name);
 
 			// Merge patches
 			p = p.blendedWith(image, blendMask);
@@ -143,12 +137,8 @@ void TexSynth::TexSynther<N>::extendTextureIn(cimg_library::CImg<float> & _img, 
 
 			ones.insertInto(_msk, xx, yy);
 
-			sprintf(name, "debug_%s_%d.png", "fullImage", iii);
-			_img.save(name);
-			sprintf(name, "debug_%s_%d.png", "fullMask", iii);
-			_msk.save(name);
-			sprintf(name, "debug_%s_%d.png", "patchBlended", iii);
-			p.save(name);
+			//sprintf(name, "debug_%s_%d.png", "fullImage", iii);
+			//_img.save(name);
 
 			iii++;
 		}
